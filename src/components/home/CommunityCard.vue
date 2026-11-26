@@ -2,137 +2,168 @@
 import SmartImage from '@/components/common/SmartImage.vue'
 import type { CommunityItem } from '@/data/home'
 
-defineProps<{
+const props = defineProps<{
   item: CommunityItem
+  index: number
 }>()
 
 const emit = defineEmits<{
   (e: 'select'): void
 }>()
+
+function pad(value: number) {
+  return String(value).padStart(2, '0')
+}
 </script>
 
 <template>
   <article
-    class="community-card"
+    class="sheet"
     role="button"
     tabindex="0"
     @click="emit('select')"
     @keydown.enter="emit('select')"
     @keydown.space.prevent="emit('select')"
   >
-    <SmartImage class="community-card__cover" :src="item.image" :alt="item.title" />
+    <div class="sheet__media">
+      <SmartImage class="sheet__cover" :src="props.item.image" :alt="props.item.title" />
+      <span class="sheet__no">{{ pad(props.index + 1) }}</span>
 
-    <span class="community-card__veil" aria-hidden="true" />
-
-    <div class="community-card__meta">
-      <span class="community-card__tag">{{ item.category }}</span>
-      <h3 class="community-card__title">{{ item.title }}</h3>
+      <div class="sheet__spec">
+        <span>{{ props.item.craft }}</span>
+        <span>{{ props.item.size }}</span>
+      </div>
     </div>
 
-    <div class="community-card__thumb" aria-hidden="true">
-      <SmartImage :src="item.image" alt="" />
+    <div class="sheet__caption">
+      <div class="sheet__caption-main">
+        <h3>{{ props.item.title }}</h3>
+        <span class="sheet__maker">{{ props.item.maker }}</span>
+      </div>
+      <span class="sheet__tag">{{ props.item.category }}</span>
     </div>
   </article>
 </template>
 
 <style scoped>
-.community-card {
+.sheet {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  cursor: pointer;
+}
+
+.sheet:focus-visible {
+  outline: 1px solid var(--brand);
+  outline-offset: 3px;
+}
+
+.sheet__media {
   position: relative;
   overflow: hidden;
-  aspect-ratio: 4 / 3;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
+  aspect-ratio: 3 / 4;
+  border: 1px solid var(--hairline);
   background: var(--surface-1);
-  cursor: pointer;
   transition: border-color 0.3s ease;
 }
 
-.community-card:hover,
-.community-card:focus-visible {
-  border-color: rgba(255, 255, 255, 0.22);
+.sheet:hover .sheet__media,
+.sheet:focus-visible .sheet__media {
+  border-color: var(--hairline-strong);
 }
 
-.community-card:focus-visible {
-  outline: 2px solid var(--brand);
-  outline-offset: 2px;
-}
-
-.community-card__cover {
+.sheet__cover {
   position: absolute;
   inset: 0;
-  transition: transform 0.5s ease;
+  transition:
+    transform 0.7s var(--ease-out),
+    filter 0.5s ease;
 }
 
-.community-card:hover .community-card__cover {
-  transform: scale(1.05);
+.sheet:hover .sheet__cover {
+  transform: scale(1.045);
 }
 
-.community-card__veil {
+.sheet__no {
   position: absolute;
-  inset: 0;
-  background: linear-gradient(to top, rgba(17, 17, 17, 0.92) 0%, rgba(17, 17, 17, 0.42) 34%, rgba(17, 17, 17, 0.04) 62%);
-  pointer-events: none;
+  top: 12px;
+  left: 12px;
+  z-index: 2;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.16em;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.55);
 }
 
-.community-card__meta {
+.sheet__spec {
   position: absolute;
   right: 0;
   bottom: 0;
   left: 0;
-  padding: 16px 92px 16px 16px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 14px 12px;
+  background: linear-gradient(to top, rgba(9, 9, 11, 0.92) 0%, rgba(9, 9, 11, 0.52) 62%, transparent 100%);
+  color: var(--text-secondary);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  transform: translateY(102%);
+  transition: transform 0.4s var(--ease-out);
 }
 
-.community-card__tag {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
-  border: 1px solid var(--brand-border);
-  border-radius: 6px;
-  background: rgba(2, 155, 254, 0.3);
-  color: var(--text-primary);
-  font-size: 11px;
-  font-weight: 500;
-  backdrop-filter: blur(4px);
+.sheet:hover .sheet__spec,
+.sheet:focus-visible .sheet__spec {
+  transform: translateY(0);
 }
 
-.community-card__title {
-  display: -webkit-box;
+.sheet__caption {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 12px;
+}
+
+.sheet__caption-main {
+  min-width: 0;
+}
+
+.sheet__caption h3 {
   overflow: hidden;
-  margin-top: 8px;
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
+  letter-spacing: -0.01em;
   line-height: 1.45;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.community-card__thumb {
-  position: absolute;
-  right: 16px;
-  bottom: 16px;
-  width: 64px;
-  height: 64px;
-  overflow: hidden;
-  border: 2px solid rgba(255, 255, 255, 0.34);
-  border-radius: 6px;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
-  transform: rotate(8deg);
-  transition: transform 0.3s ease;
+.sheet__maker {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-dim);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
 }
 
-.community-card:hover .community-card__thumb {
-  transform: rotate(0deg) scale(1.2);
+.sheet__tag {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-pill);
+  color: var(--text-muted);
+  font-size: 10px;
+  transition:
+    border-color 0.3s ease,
+    color 0.3s ease;
 }
 
-@media (min-width: 640px) {
-  .community-card__meta {
-    padding-right: 108px;
-  }
-
-  .community-card__thumb {
-    width: 84px;
-    height: 84px;
-  }
+.sheet:hover .sheet__tag {
+  border-color: var(--sand-border);
+  color: var(--sand);
 }
 </style>

@@ -150,9 +150,10 @@ function login() {
   position: sticky;
   top: 0;
   z-index: 130;
-  background-color: rgba(9, 9, 11, 0.82);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  border-bottom: 1px solid var(--hairline);
+  background-color: rgba(9, 9, 11, 0.78);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
 .site-header__inner {
@@ -164,14 +165,14 @@ function login() {
   justify-content: space-between;
   gap: 16px;
   margin: 0 auto;
-  padding: 0 20px;
+  padding: 0 clamp(18px, 3vw, 40px);
 }
 
 .site-header__left {
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: 18px;
+  gap: 20px;
 }
 
 .site-header__right {
@@ -182,12 +183,12 @@ function login() {
 
 .icon-button {
   display: inline-flex;
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  border: 1px solid var(--hairline);
   border-radius: 999px;
   color: var(--text-muted);
   transition:
@@ -197,55 +198,52 @@ function login() {
 }
 
 .icon-button:hover {
-  border-color: rgba(255, 255, 255, 0.34);
-  background-color: rgba(255, 255, 255, 0.06);
+  border-color: var(--hairline-strong);
+  background-color: rgba(255, 255, 255, 0.05);
   color: var(--text-primary);
 }
 
 .contact-button {
   display: inline-flex;
-  height: 36px;
+  height: 34px;
   align-items: center;
-  gap: 8px;
-  padding: 0 20px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 999px;
-  color: var(--text-secondary);
-  font-size: 13px;
-  transition:
-    border-color 0.2s ease,
-    color 0.2s ease;
+  gap: 7px;
+  padding: 0 4px;
+  color: var(--text-muted);
+  font-size: 12px;
+  transition: color 0.2s ease;
 }
 
 .contact-button:hover {
-  border-color: rgba(255, 255, 255, 0.42);
   color: var(--text-primary);
 }
 
 .login-button {
   display: inline-flex;
-  height: 36px;
+  height: 34px;
   align-items: center;
-  padding: 0 22px;
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  padding: 0 18px;
+  border: 1px solid var(--hairline-strong);
   border-radius: 999px;
-  color: var(--text-primary);
-  font-size: 13px;
+  color: var(--text-secondary);
+  font-size: 12px;
   transition:
     border-color 0.2s ease,
-    background-color 0.2s ease;
+    background-color 0.2s ease,
+    color 0.2s ease;
 }
 
 .login-button:hover {
-  border-color: rgba(255, 255, 255, 0.9);
-  background-color: rgba(255, 255, 255, 0.08);
+  border-color: var(--brand-border);
+  background-color: rgba(2, 155, 254, 0.1);
+  color: var(--text-primary);
 }
 
 .site-nav {
   display: none;
   height: 100%;
   align-items: center;
-  gap: 28px;
+  gap: 26px;
 }
 
 .site-nav__item {
@@ -253,8 +251,8 @@ function login() {
   display: inline-flex;
   height: 100%;
   align-items: center;
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 13px;
+  color: var(--text-muted);
+  font-size: 12.5px;
   transition: color 0.2s ease;
 }
 
@@ -268,9 +266,9 @@ function login() {
 
 .site-nav__item.is-active::after {
   position: absolute;
-  bottom: 10px;
+  bottom: 12px;
   left: 50%;
-  width: 16px;
+  width: 20px;
   height: 2px;
   border-radius: 2px;
   background: var(--brand);

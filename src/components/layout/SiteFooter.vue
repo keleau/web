@@ -1,60 +1,174 @@
+<script setup lang="ts">
+import BrandLogo from '@/components/common/BrandLogo.vue'
+
+const groups = [
+  {
+    title: '创作',
+    links: ['生产工具', '制作流程', '定价说明'],
+  },
+  {
+    title: '商店',
+    links: ['作品商店', '限量版', '定制服务'],
+  },
+  {
+    title: '关于',
+    links: ['联系我们', '隐私政策', '服务条款'],
+  },
+]
+</script>
+
 <template>
   <footer class="site-footer">
     <div class="site-footer__inner">
-      <p>
-        客服热线：13380042016 | 接听时间：法定工作日 08：00-12：00；14：00-18：00 | DREAM MAKING ··
-        |
-        <a href="#" @click.prevent>·隐私政策</a>
-        ·
-        <a href="#" @click.prevent>服务条款</a>
-      </p>
-      <p>
-        Copyright © 2026 广州趣闯网络科技有限公司 |
-        <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">
-          粤ICP备2022108110号-1
-        </a>
-        | 粤公网安备44010502002530号
-      </p>
-      <p>
-        <a href="#" @click.prevent>网信算备440105311485401240061号</a>
-        |
-        <a href="#" @click.prevent>网信算备440105311485401240053号</a>
-      </p>
-      <p>趣丸万相大模型：Guangdong-QuWanWanXiang-202507140065</p>
-      <p>平台技术支持方：趣丸Deep-Mesh，Vast，混元等</p>
+      <div class="site-footer__grid">
+        <div class="site-footer__brand">
+          <BrandLogo />
+          <p>一张照片，一件可以拿在手里的作品。</p>
+          <a class="site-footer__tel" href="tel:13380042016">客服 133 8004 2016</a>
+        </div>
+
+        <nav class="site-footer__links" aria-label="页脚导航">
+          <div v-for="group in groups" :key="group.title" class="site-footer__group">
+            <span>{{ group.title }}</span>
+            <a v-for="link in group.links" :key="link" href="#" @click.prevent>{{ link }}</a>
+          </div>
+        </nav>
+
+        <div class="site-footer__legal">
+          <p>Copyright © 2026 广州趣闯网络科技有限公司</p>
+          <p>
+            <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">
+              粤ICP备2022108110号-1
+            </a>
+            · 粤公网安备44010502002530号
+          </p>
+          <p>网信算备440105311485401240061号 / 440105311485401240053号</p>
+          <p>趣丸万相大模型：Guangdong-QuWanWanXiang-202507140065</p>
+        </div>
+      </div>
+
+      <div class="site-footer__base">
+        <span>趣丸 Deep-Mesh · 创作工坊</span>
+        <span>技术支持：Vast / 混元</span>
+      </div>
     </div>
   </footer>
 </template>
 
 <style scoped>
 .site-footer {
-  margin-top: 40px;
-  padding: 0 20px 32px;
+  margin-top: clamp(48px, 6vw, 80px);
+  padding: 0 clamp(18px, 3vw, 40px) 28px;
 }
 
 .site-footer__inner {
-  display: flex;
   max-width: var(--page-max);
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
   margin: 0 auto;
-  color: #737373;
+  padding-top: clamp(28px, 3.4vw, 44px);
+  border-top: 1px solid var(--hairline);
+}
+
+.site-footer__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(26px, 3vw, 44px);
+}
+
+.site-footer__brand {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.site-footer__brand p {
+  max-width: 300px;
+  color: var(--text-muted);
   font-size: 12px;
   line-height: 1.7;
-  text-align: center;
 }
 
-.site-footer__inner p {
-  margin: 0;
-}
-
-.site-footer a {
-  color: #737373;
+.site-footer__tel {
+  color: var(--text-dim);
+  font-size: 11px;
+  letter-spacing: 0.06em;
   transition: color 0.2s ease;
 }
 
-.site-footer a:hover {
-  color: var(--brand);
+.site-footer__tel:hover {
+  color: var(--sand);
+}
+
+.site-footer__links {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.site-footer__group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.site-footer__group span {
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.site-footer__group a {
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  transition: color 0.2s ease;
+}
+
+.site-footer__group a:hover {
+  color: var(--brand-strong);
+}
+
+.site-footer__legal {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: var(--text-dim);
+  font-size: 10px;
+  line-height: 1.7;
+}
+
+.site-footer__legal a {
+  color: var(--text-dim);
+  transition: color 0.2s ease;
+}
+
+.site-footer__legal a:hover {
+  color: var(--text-muted);
+}
+
+.site-footer__base {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 20px;
+  margin-top: clamp(26px, 3.2vw, 40px);
+  padding-top: 14px;
+  border-top: 1px solid var(--hairline);
+  color: var(--text-dim);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+@media (min-width: 900px) {
+  .site-footer__grid {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.6fr) minmax(0, 1.3fr);
+    align-items: start;
+  }
+
+  .site-footer__legal {
+    text-align: right;
+    align-items: flex-end;
+  }
 }
 </style>

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import { ShoppingCart } from '@element-plus/icons-vue'
 import SmartImage from '@/components/common/SmartImage.vue'
 import type { ProductItem } from '@/data/home'
 
@@ -8,164 +10,205 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'buy', product: ProductItem): void
+  (e: 'open', product: ProductItem): void
 }>()
+
+const isWide = computed(() => props.product.ratio === '5:4')
 </script>
 
 <template>
-  <article class="product-card">
-    <div class="product-card__media">
-      <SmartImage :src="props.product.image" :alt="props.product.title" />
+  <article class="piece">
+    <div class="piece__media" :class="{ 'is-wide': isWide }">
+      <SmartImage class="piece__cover" :src="props.product.image" :alt="props.product.title" />
 
-      <span v-if="props.product.badge === 'fan'" class="product-card__badge">粉丝收藏</span>
-      <span v-else-if="props.product.badge === 'limited'" class="product-card__badge is-limited">
-        限时发售
+      <span
+        class="piece__edition"
+        :class="{ 'is-limited': props.product.badge === 'limited' }"
+      >
+        {{ props.product.edition }}
       </span>
 
-      <div class="product-card__overlay">
-        <button class="product-card__buy" type="button" @click="emit('buy', props.product)">
-          立即购买
+      <div class="piece__actions">
+        <button class="piece__cart" type="button" :aria-label="`加入购物车：${props.product.title}`" @click="emit('buy', props.product)">
+          <el-icon :size="13"><ShoppingCart /></el-icon>
+          加入购物车
         </button>
       </div>
+
+      <button class="piece__open" type="button" :aria-label="`查看 ${props.product.title}`" @click="emit('open', props.product)"></button>
     </div>
 
-    <h3 class="product-card__title" :title="props.product.title">{{ props.product.title }}</h3>
-    <div class="product-card__meta">
-      <span class="product-card__price">￥{{ props.product.price }}</span>
-      <span class="product-card__sold">已售 {{ props.product.sold }} 件</span>
+    <h3 class="piece__title" :title="props.product.title">{{ props.product.title }}</h3>
+
+    <div class="piece__meta">
+      <span class="piece__price">￥{{ props.product.price }}</span>
+      <span class="piece__sold">已售 {{ props.product.sold }} 件</span>
     </div>
   </article>
 </template>
 
 <style scoped>
-.product-card {
+.piece {
+  display: flex;
+  height: 100%;
   min-width: 0;
+  flex-direction: column;
 }
 
-.product-card__media {
+.piece__media {
   position: relative;
   overflow: hidden;
-  aspect-ratio: 1 / 1;
-  border: 1px solid var(--border);
-  border-radius: 14px;
+  aspect-ratio: 4 / 5;
+  border: 1px solid var(--hairline);
   background: var(--surface-1);
+  transition: border-color 0.35s ease;
 }
 
-.product-card__media :deep(.smart-image) {
+.piece__media.is-wide {
+  background: #0c0c0f;
+}
+
+.piece__media.is-wide :deep(.smart-image) {
+  background: #0c0c0f;
+}
+
+.piece__media.is-wide :deep(.smart-image__img) {
+  object-fit: contain;
+}
+
+.piece__media:hover {
+  border-color: var(--hairline-strong);
+}
+
+.piece__cover {
   position: absolute;
   inset: 0;
-  transition: transform 0.5s ease;
+  transition:
+    transform 0.8s var(--ease-out),
+    filter 0.5s ease;
 }
 
-.product-card__media:hover :deep(.smart-image) {
-  transform: scale(1.05);
+.piece__media:hover .piece__cover {
+  transform: scale(1.03);
+  filter: brightness(1.04);
 }
 
-.product-card__badge {
+.piece__edition {
   position: absolute;
-  top: 12px;
-  left: 12px;
-  z-index: 2;
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 9px;
-  border: 1px solid rgba(2, 155, 254, 0.55);
-  border-radius: 999px;
-  background: rgba(2, 155, 254, 0.16);
-  color: #9ad8ff;
-  font-size: 10.5px;
+  top: 10px;
+  left: 10px;
+  z-index: 3;
+  padding: 3px 7px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(9, 9, 11, 0.6);
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 9.5px;
   font-weight: 500;
+  letter-spacing: 0.06em;
   backdrop-filter: blur(6px);
 }
 
-.product-card__badge.is-limited {
-  border-color: transparent;
-  background: linear-gradient(90deg, #ff7a18 0%, #ff2e63 100%);
-  color: #fff;
-  box-shadow: 0 4px 12px rgba(255, 46, 99, 0.3);
+.piece__edition.is-limited {
+  border-color: var(--sand-border);
+  background: rgba(9, 9, 11, 0.66);
+  color: var(--sand);
 }
 
-.product-card__overlay {
+.piece__actions {
   position: absolute;
-  inset: 0;
-  z-index: 1;
+  right: 10px;
+  bottom: 10px;
+  left: 10px;
+  z-index: 3;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.45);
+  justify-content: flex-end;
   opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.2s ease;
+  transform: translateY(6px);
+  transition:
+    opacity 0.3s ease,
+    transform 0.4s var(--ease-out);
 }
 
-.product-card__media:hover .product-card__overlay,
-.product-card__media:focus-within .product-card__overlay {
+.piece__media:hover .piece__actions,
+.piece__media:focus-within .piece__actions {
   opacity: 1;
-  pointer-events: auto;
+  transform: translateY(0);
 }
 
-.product-card__buy {
+.piece__cart {
   display: inline-flex;
   height: 32px;
   align-items: center;
-  justify-content: center;
-  padding: 0 20px;
-  border-radius: 8px;
+  gap: 5px;
+  padding: 0 12px;
+  border-radius: var(--radius-pill);
+  background: rgba(9, 9, 11, 0.86);
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 600;
+  backdrop-filter: blur(8px);
+  transition:
+    background-color 0.25s ease,
+    color 0.25s ease;
+}
+
+.piece__cart:hover {
   background: var(--brand);
   color: #001018;
-  font-size: 13px;
-  font-weight: 600;
-  transition:
-    filter 0.2s ease,
-    transform 0.2s ease;
 }
 
-.product-card__buy:hover {
-  filter: brightness(1.08);
-  transform: translateY(-1px);
+.piece__open {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  cursor: pointer;
 }
 
-.product-card__title {
+.piece__open:focus-visible {
+  outline: 1px solid var(--brand);
+  outline-offset: -3px;
+}
+
+.piece__title {
+  display: -webkit-box;
   overflow: hidden;
-  margin-top: 8px;
-  color: var(--text-primary);
-  font-size: 13px;
+  margin-top: 10px;
+  color: var(--text-secondary);
+  font-size: 12.5px;
   font-weight: 400;
-  line-height: 1.5;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  letter-spacing: 0;
+  line-height: 1.55;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
-.product-card__meta {
+.piece__meta {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
   gap: 8px;
-  margin-top: 4px;
+  margin-top: auto;
+  padding-top: 8px;
 }
 
-.product-card__price {
-  color: var(--brand);
+.piece__price {
+  color: var(--text-primary);
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
 }
 
-.product-card__sold {
-  color: var(--text-muted);
-  font-size: 11px;
+.piece__sold {
+  color: var(--text-dim);
+  font-size: 10px;
   white-space: nowrap;
 }
 
 @media (hover: none) {
-  .product-card__overlay {
-    background: rgba(0, 0, 0, 0.22);
+  .piece__actions {
     opacity: 1;
-    pointer-events: auto;
-  }
-
-  .product-card__buy {
-    height: 30px;
-    padding: 0 16px;
-    font-size: 12px;
+    transform: none;
   }
 }
 </style>

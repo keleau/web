@@ -4,6 +4,7 @@ import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 interface TabOption {
   label: string
   value: string
+  count?: number
 }
 
 const props = defineProps<{
@@ -60,9 +61,9 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div ref="containerRef" class="section-tabs" role="tablist">
+  <div ref="containerRef" class="index-tabs" role="tablist">
     <span
-      class="section-tabs__indicator"
+      class="index-tabs__indicator"
       aria-hidden="true"
       :style="{ transform: `translateX(${indicator.left}px)`, width: `${indicator.width}px` }"
     />
@@ -70,66 +71,74 @@ onBeforeUnmount(() => {
       v-for="(option, index) in options"
       :key="option.value"
       :ref="(el) => setItemRef(el, index)"
-      class="section-tabs__item"
+      class="index-tabs__item"
       :class="{ 'is-active': modelValue === option.value }"
       type="button"
       role="tab"
       :aria-selected="modelValue === option.value"
       @click="select(option.value)"
     >
-      {{ option.label }}
+      <span>{{ option.label }}</span>
+      <span v-if="option.count !== undefined" class="index-tabs__count">{{ option.count }}</span>
     </button>
   </div>
 </template>
 
 <style scoped>
-.section-tabs {
+.index-tabs {
   position: relative;
   display: inline-flex;
   max-width: 100%;
-  align-items: center;
+  flex-wrap: nowrap;
   gap: 2px;
   overflow-x: auto;
-  padding: 4px;
-  border: 1px solid var(--border-strong);
-  border-radius: 12px;
-  background: var(--surface-1);
+  border-bottom: 1px solid var(--hairline);
   scrollbar-width: none;
 }
 
-.section-tabs::-webkit-scrollbar {
+.index-tabs::-webkit-scrollbar {
   display: none;
 }
 
-.section-tabs__indicator {
+.index-tabs__indicator {
   position: absolute;
-  top: 4px;
+  bottom: -1px;
   left: 0;
-  height: 30px;
-  border: 1px solid var(--brand-border);
-  border-radius: 8px;
-  background: var(--brand-soft);
+  height: 1px;
+  background: var(--brand);
   pointer-events: none;
   transition:
-    transform 0.3s ease,
-    width 0.3s ease;
+    transform 0.35s var(--ease-out),
+    width 0.35s var(--ease-out);
 }
 
-.section-tabs__item {
-  position: relative;
-  z-index: 1;
-  height: 30px;
+.index-tabs__item {
+  display: inline-flex;
   flex-shrink: 0;
-  padding: 0 12px;
-  border-radius: 8px;
+  align-items: baseline;
+  gap: 5px;
+  padding: 2px 16px 10px;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: 12.5px;
   white-space: nowrap;
-  transition: color 0.2s ease;
+  transition: color 0.25s ease;
 }
 
-.section-tabs__item:hover,
-.section-tabs__item.is-active {
+.index-tabs__item:hover {
+  color: var(--text-secondary);
+}
+
+.index-tabs__item.is-active {
   color: var(--text-primary);
+}
+
+.index-tabs__count {
+  color: var(--text-dim);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.index-tabs__item.is-active .index-tabs__count {
+  color: var(--sand);
 }
 </style>
