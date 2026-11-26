@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * ReliefPreview —— 把上传的参考图转成可旋转的 2.9D 浮雕预览
+ * ReliefPreview —— 把上传的参考图转成可旋转的 2.9D 浮雕模型
  *
  * 复用 ThreeStage 渲染内核：读取图片亮度生成高度位移，
  * 叠在带厚度的底板上，形成类似全彩树脂浮雕的立体效果。
@@ -25,7 +25,7 @@ const stage = ref<InstanceType<typeof ThreeStage> | null>(null)
 const phase = ref<Phase>('loading')
 const errorText = ref('')
 
-const RELIEF_DEPTH = 0.32
+const RELIEF_DEPTH = 0.26
 const SEGMENTS = 160
 
 let disposed = false
@@ -108,10 +108,10 @@ function createRelief(image: HTMLImageElement, texture: THREE.Texture) {
     geometry,
     new THREE.MeshPhysicalMaterial({
       map: texture,
-      roughness: 0.46,
-      metalness: 0.05,
-      clearcoat: 0.28,
-      clearcoatRoughness: 0.55,
+      roughness: 0.58,
+      metalness: 0.03,
+      clearcoat: 0.12,
+      clearcoatRoughness: 0.62,
     }),
   )
 
@@ -127,10 +127,10 @@ function createRelief(image: HTMLImageElement, texture: THREE.Texture) {
   const plate = new THREE.Mesh(
     plateGeometry,
     new THREE.MeshPhysicalMaterial({
-      color: 0xe6dcc9,
-      roughness: 0.5,
-      metalness: 0.1,
-      clearcoat: 0.2,
+      color: 0x222227,
+      roughness: 0.52,
+      metalness: 0.18,
+      clearcoat: 0.18,
       clearcoatRoughness: 0.6,
     }),
   )
@@ -165,7 +165,7 @@ async function build(src: string) {
   } catch (error) {
     if (disposed || token !== loadToken) return
     phase.value = 'error'
-    errorText.value = error instanceof Error ? error.message : '3D 预览生成失败'
+    errorText.value = error instanceof Error ? error.message : '3D 模型生成失败'
     emit('error', errorText.value)
   }
 }
@@ -199,7 +199,7 @@ onBeforeUnmount(() => {
 
     <div v-if="phase === 'loading'" class="relief-preview__state">
       <span class="relief-preview__spinner" aria-hidden="true"></span>
-      <span>正在生成 3D 浮雕…</span>
+      <span>模型初始化中…</span>
     </div>
 
     <div v-else-if="phase === 'error'" class="relief-preview__state is-error">

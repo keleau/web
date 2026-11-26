@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
-import { ArrowRight, Check } from '@element-plus/icons-vue'
+import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
+import { ArrowRight, Check, Picture } from '@element-plus/icons-vue'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { useRoute } from 'vue-router'
 import ReferenceUploader from '@/components/custom/ReferenceUploader.vue'
@@ -8,14 +8,59 @@ import ReliefPreview from '@/components/custom/ReliefPreview.vue'
 import { submitCustomOrder, uploadReferenceImage } from '@/api/custom'
 import { products } from '@/data/products'
 
-const SAMPLE_IMAGE = '/images/custom/reference-photo.jpg'
+const GUIDE_PHOTO = '/images/custom/reference-photo.jpg'
+const GUIDE_MODEL = '/images/custom/reference-model.jpg'
 
 const route = useRoute()
 
 const files = ref<File[]>([])
-const previewSrc = ref(SAMPLE_IMAGE)
+const previewSrc = ref('')
+const modelSrc = ref('')
+const building = ref(false)
+const modelingProgress = ref(0)
 const uploaderRef = ref<InstanceType<typeof ReferenceUploader> | null>(null)
 const hasUpload = computed(() => files.value.length > 0)
+
+let buildToken = 0
+let buildTimer: number | undefined
+
+function stopBuildTimer() {
+  if (buildTimer !== undefined) {
+    window.clearInterval(buildTimer)
+    buildTimer = undefined
+  }
+}
+
+/** 模拟建模过程；后端建模接口就绪后，把这里的计时替换成真实请求并同步进度即可 */
+async function buildModel(source: string) {
+  const token = Number(++buildToken)
+  stopBuildTimer()
+
+  modelSrc.value = ''
+  building.value = true
+  modelingProgress.value = 0
+
+  buildTimer = window.setInterval(() => {
+    if (modelingProgress.value >= 90) return
+    modelingProgress.value = Math.min(90, modelingProgress.value + Math.round(2 + Math.random() * 7))
+  }, 160)
+
+  await new Promise((resolve) => setTimeout(resolve, 2400))
+  if (token !== buildToken) return
+
+  stopBuildTimer()
+  modelingProgress.value = 100
+  modelSrc.value = source
+  building.value = false
+}
+
+// 进入页面先弹一次上传提示
+const guideVisible = ref(true)
+
+function startUpload() {
+  guideVisible.value = false
+  void nextTick(() => uploaderRef.value?.openPicker())
+}
 
 const product = computed(() => {
   const id = route.query.product
@@ -23,13 +68,26 @@ const product = computed(() => {
   return products.find((item) => item.id === id) ?? null
 })
 
-// 第一张参考图用于 3D 预览；没有上传时展示示例
+// 第一张参考图进入建模流程，完成后在预览区渲染 3D 模型
 watch(files, (next) => {
   if (previewSrc.value.startsWith('blob:')) URL.revokeObjectURL(previewSrc.value)
-  previewSrc.value = next[0] ? URL.createObjectURL(next[0]) : SAMPLE_IMAGE
+  previewSrc.value = next[0] ? URL.createObjectURL(next[0]) : ''
+
+  if (!previewSrc.value) {
+    buildToken += 1
+    stopBuildTimer()
+    building.value = false
+    modelingProgress.value = 0
+    modelSrc.value = ''
+    return
+  }
+
+  void buildModel(previewSrc.value)
 })
 
 onBeforeUnmount(() => {
+  buildToken += 1
+  stopBuildTimer()
   if (previewSrc.value.startsWith('blob:')) URL.revokeObjectURL(previewSrc.value)
 })
 
@@ -94,7 +152,11 @@ async function handleSubmit() {
 function handleClosed() {
   if (!orderId.value) return
   orderId.value = ''
-  formRef.value?.resetFields()
+  // 表单在订单成功时已被卸载，这里直接重置数据源
+  form.name = ''
+  form.phone = ''
+  form.address = ''
+  form.note = ''
   uploaderRef.value?.reset()
 }
 </script>
@@ -103,10 +165,10 @@ function handleClosed() {
   <div class="custom-page">
     <div class="page-section custom-page__head">
       <div>
-        <span class="custom-page__eyebrow">定制 · 3D 浮雕</span>
-        <h1>上传照片，生成你的 3D 预览</h1>
+        <span class="custom-page__eyebrow">Bespoke — 定制</span>
+        <h1>上传照片，生成你的 3D 模型</h1>
       </div>
-      <p>参考图会即时转成可旋转的浮雕模型，满意后填写资料即可下单。</p>
+      <p>上传参考图后自动建模，满意后填写资料即可下单。</p>
     </div>
 
     <div class="page-section custom-layout">
@@ -121,23 +183,32 @@ function handleClosed() {
         <button
           class="btn btn--primary custom-card__cta"
           type="button"
-          :disabled="!hasUpload"
+          :disabled="!hasUpload || building"
           @click="openDialog"
         >
-          生成定制方案
+          {{ building ? '建模中…' : '生成定制方案' }}
           <el-icon :size="14"><ArrowRight /></el-icon>
         </button>
       </section>
 
       <section class="custom-card custom-card--preview">
         <header class="custom-card__head">
-          <span>3D 浮雕预览</span>
-          <small>{{ hasUpload ? '你的参考图' : '示例' }}</small>
+          <span>作品预览</span>
+          <small>{{ hasUpload ? `参考图 ${files.length} 张` : '待上传' }}</small>
         </header>
 
-        <div class="custom-preview">
-          <ReliefPreview :src="previewSrc" />
-          <span v-if="!hasUpload" class="custom-preview__badge">上传照片后替换为你的作品</span>
+        <div class="custom-preview" :class="{ 'has-model': !!modelSrc }">
+          <template v-if="modelSrc">
+            <ReliefPreview :src="modelSrc" />
+            <span class="custom-preview__tag">3D 模型 · 拖拽查看</span>
+          </template>
+
+          <div v-else-if="!hasUpload" class="custom-preview__empty">
+            <span class="custom-preview__empty-icon">
+              <el-icon :size="22"><Picture /></el-icon>
+            </span>
+            <p>上传照片后替换为你的作品</p>
+          </div>
         </div>
 
         <p v-if="product" class="custom-preview__product">
@@ -145,6 +216,60 @@ function handleClosed() {
         </p>
       </section>
     </div>
+
+    <el-dialog
+      v-model="guideVisible"
+      width="min(560px, 92vw)"
+      align-center
+      class="custom-dialog guide-dialog"
+    >
+      <template #header>
+        <div class="custom-dialog__head">
+          <span class="custom-dialog__eyebrow">Bespoke — 提示</span>
+          <h2>上传参考图片</h2>
+        </div>
+      </template>
+
+      <div class="guide">
+        <div class="guide__upload">
+          <span class="guide__formats" aria-hidden="true">
+            <i>PNG</i>
+            <i>JPG</i>
+            <i>WebP</i>
+            <b>＋</b>
+          </span>
+          <p>拖拽图片或点击此处选择图片</p>
+          <small>支持 JPG / PNG / WEBP，单张不超过 10MB</small>
+        </div>
+
+        <div class="guide__example">
+          <div class="guide__pair">
+            <figure>
+              <img :src="GUIDE_PHOTO" alt="参考照片示例" />
+              <figcaption>参考照片</figcaption>
+            </figure>
+            <span class="guide__arrow" aria-hidden="true">→</span>
+            <figure>
+              <img :src="GUIDE_MODEL" alt="生成模型示例" />
+              <figcaption>生成模型</figcaption>
+            </figure>
+          </div>
+          <p>需要上传你的特征参考图片，才可生成对应模型。</p>
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="custom-dialog__footer">
+          <button class="btn btn--ghost" type="button" @click="guideVisible = false">
+            知道了
+          </button>
+          <button class="btn btn--primary" type="button" @click="startUpload">
+            去上传
+            <el-icon :size="14"><ArrowRight /></el-icon>
+          </button>
+        </div>
+      </template>
+    </el-dialog>
 
     <el-dialog
       v-model="dialogVisible"
@@ -239,6 +364,20 @@ function handleClosed() {
         </div>
       </template>
     </el-dialog>
+
+    <Transition name="modeling">
+      <div v-if="building" class="modeling" role="status" aria-live="polite" aria-busy="true">
+        <div class="modeling__panel">
+          <span class="modeling__spinner" aria-hidden="true"></span>
+          <h2>正在生成 3D 模型</h2>
+          <p>正在分析参考图并构建浮雕模型</p>
+          <div class="modeling__bar">
+            <i :style="{ width: `${modelingProgress}%` }"></i>
+          </div>
+          <span class="modeling__percent">{{ modelingProgress }}%</span>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -333,12 +472,24 @@ function handleClosed() {
 
 .custom-preview {
   position: relative;
+  display: flex;
   height: clamp(300px, 56vw, 420px);
+  align-items: center;
+  justify-content: center;
   overflow: hidden;
+  padding: clamp(14px, 2vw, 26px);
   border: 1px solid var(--hairline);
+  background:
+    radial-gradient(90% 80% at 50% 0%, rgba(255, 255, 255, 0.03), transparent 72%),
+    rgba(255, 255, 255, 0.012);
 }
 
-.custom-preview__badge {
+.custom-preview.has-model {
+  display: block;
+  padding: 0;
+}
+
+.custom-preview__tag {
   position: absolute;
   top: 12px;
   left: 12px;
@@ -352,10 +503,176 @@ function handleClosed() {
   backdrop-filter: blur(6px);
 }
 
+.custom-preview__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-dim);
+  font-size: 12px;
+  text-align: center;
+}
+
+.custom-preview__empty-icon {
+  display: inline-flex;
+  width: 48px;
+  height: 48px;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--hairline-strong);
+  border-radius: 50%;
+  color: var(--text-muted);
+}
+
 .custom-preview__product {
   margin-top: 10px;
   color: var(--text-dim);
   font-size: 10.5px;
+}
+
+/* ---------- 上传提示弹窗 ---------- */
+
+.guide {
+  display: grid;
+  gap: 12px;
+}
+
+.guide__upload {
+  display: flex;
+  min-height: 180px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 16px;
+  border: 1px dashed var(--hairline-strong);
+  text-align: center;
+}
+
+.guide__formats {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  transform: rotate(-4deg);
+}
+
+.guide__formats i {
+  position: relative;
+  display: inline-flex;
+  width: 30px;
+  height: 37px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  background: linear-gradient(150deg, #3b3b42, #26262c);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 8px;
+  font-style: normal;
+  font-weight: 700;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.28);
+}
+
+.guide__formats i:nth-child(1) {
+  transform: rotate(-8deg) translateY(2px);
+}
+
+.guide__formats i:nth-child(2) {
+  transform: translateY(-3px);
+}
+
+.guide__formats i:nth-child(3) {
+  transform: rotate(8deg) translateY(2px);
+}
+
+.guide__formats b {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  align-items: center;
+  justify-content: center;
+  margin-left: 2px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 50%;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.guide__upload p {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.guide__upload small {
+  color: var(--text-dim);
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.guide__example {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--hairline);
+  background: var(--surface-1);
+}
+
+.guide__pair {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.guide__pair figure {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  min-width: 0;
+  aspect-ratio: 1 / 1;
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  background: #ece7dc;
+}
+
+.guide__pair img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.guide__pair figcaption {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  padding: 2px 6px;
+  border-radius: var(--radius-pill);
+  background: rgba(9, 9, 11, 0.72);
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 8.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  backdrop-filter: blur(6px);
+}
+
+.guide__arrow {
+  flex-shrink: 0;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
+.guide__example p {
+  color: var(--text-muted);
+  font-size: 10.5px;
+  line-height: 1.65;
+}
+
+@media (min-width: 560px) {
+  .guide {
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  }
 }
 
 /* ---------- 下单弹窗 ---------- */
@@ -506,6 +823,95 @@ function handleClosed() {
 .order-done__note {
   color: var(--text-muted);
   font-size: 11px;
+}
+
+/* ---------- 建模等待遮罩 ---------- */
+
+.modeling {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(5, 5, 8, 0.8);
+  backdrop-filter: blur(10px);
+}
+
+.modeling__panel {
+  display: flex;
+  width: min(360px, 88vw);
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 30px 28px;
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  background: #101013;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+  text-align: center;
+}
+
+.modeling__spinner {
+  width: 36px;
+  height: 36px;
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  border-top-color: var(--brand);
+  border-radius: 50%;
+  animation: modeling-spin 0.8s linear infinite;
+}
+
+@keyframes modeling-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.modeling__panel h2 {
+  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.modeling__panel p {
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.modeling__bar {
+  width: 100%;
+  height: 3px;
+  margin-top: 8px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.modeling__bar i {
+  display: block;
+  height: 100%;
+  background: var(--brand);
+  transition: width 0.2s ease;
+}
+
+.modeling__percent {
+  color: var(--text-dim);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+}
+
+.modeling-enter-active,
+.modeling-leave-active {
+  transition: opacity 0.25s ease;
+}
+
+.modeling-enter-from,
+.modeling-leave-to {
+  opacity: 0;
 }
 
 @media (min-width: 900px) {

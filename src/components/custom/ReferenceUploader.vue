@@ -173,7 +173,7 @@ onBeforeUnmount(() => {
   items.value.forEach((item) => URL.revokeObjectURL(item.previewUrl))
 })
 
-defineExpose({ reset: clearAll })
+defineExpose({ reset: clearAll, openPicker })
 </script>
 
 <template>
@@ -255,7 +255,7 @@ defineExpose({ reset: clearAll })
               @click="openPicker"
             >
               <span aria-hidden="true">＋</span>
-              <small>继续添加</small>
+              <small>继续添加丰富细节</small>
             </button>
           </li>
         </ul>
@@ -397,8 +397,9 @@ defineExpose({ reset: clearAll })
 
 .reference-uploader__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
-  gap: 10px 8px;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px 10px;
+  align-items: start;
   list-style: none;
 }
 
@@ -409,15 +410,14 @@ defineExpose({ reset: clearAll })
 .reference-item__media {
   position: relative;
   overflow: hidden;
-  aspect-ratio: 1 / 1;
   border: 1px solid var(--hairline);
   background: var(--surface-1);
 }
 
 .reference-item__media img {
+  display: block;
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  height: auto;
 }
 
 .reference-item__badge {

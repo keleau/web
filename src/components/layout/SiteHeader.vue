@@ -160,6 +160,7 @@ function login() {
 .site-header__left {
   display: flex;
   min-width: 0;
+  align-self: stretch;
   align-items: center;
   gap: 20px;
 }
