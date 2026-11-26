@@ -5,18 +5,21 @@
  * 加载链路（和对方一致）：
  *   glb 二进制 → ArrayBuffer 缓存 → URL.createObjectURL(blob) → GLTFLoader + DRACOLoader → WebGL
  *
+ * 职责划分：
+ *   本组件只负责“内容”：模型加载、进度、poster 淡出、状态提示
+ *   three.js 渲染内核（renderer/scene/camera/控制/自适应/释放）由 ThreeStage 承载
+ *
  * 性能要点：
  *   1. 组件通过 defineAsyncComponent 懒加载，three.js 单独分包，不进首屏
  *   2. GLB 按 URL 缓存 ArrayBuffer，重复打开秒开
  *   3. 页面不可见 / 元素移出视口时停掉渲染循环，省 GPU
  *   4. 卸载时逐项 dispose，避免显存泄漏
  */
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import * as THREE from 'three'
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
+import ThreeStage from '@/components/common/ThreeStage.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -37,7 +40,7 @@ const emit = defineEmits<{
 
 type Phase = 'loading' | 'ready' | 'error'
 
-const host = ref<HTMLDivElement | null>(null)
+const stage = ref<InstanceType<typeof ThreeStage> | null>(null)
 const phase = ref<Phase>('loading')
 const progress = ref(0)
 const errorText = ref('')
@@ -48,16 +51,6 @@ const CACHE_LIMIT = 8
 
 /** GLB 魔数 0x46546C67 = "glTF" */
 const GLB_MAGIC = 0x46546c67
-
-let renderer: THREE.WebGLRenderer | null = null
-let scene: THREE.Scene | null = null
-let camera: THREE.PerspectiveCamera | null = null
-let controls: OrbitControls | null = null
-let envTexture: THREE.Texture | null = null
-let currentObject: THREE.Object3D | null = null
-let resizeObserver: ResizeObserver | null = null
-let intersectionObserver: IntersectionObserver | null = null
-let playing = false
 
 /* ---------------- 模型来源 ---------------- */
 
@@ -225,154 +218,26 @@ function createPlaceholder(variant: string): THREE.Object3D {
   return group
 }
 
-/* ---------------- 场景生命周期 ---------------- */
-
-function fitCamera(object: THREE.Object3D) {
-  if (!camera || !controls) return
-  const box = new THREE.Box3().setFromObject(object)
-  const size = box.getSize(new THREE.Vector3())
-  const center = box.getCenter(new THREE.Vector3())
-  const maxDim = Math.max(size.x, size.y, size.z) || 1
-  const fov = (camera.fov * Math.PI) / 180
-  const distance = ((maxDim / 2) / Math.tan(fov / 2)) * 1.55
-
-  camera.position.set(center.x + distance * 0.28, center.y + distance * 0.2, center.z + distance)
-  camera.near = distance / 100
-  camera.far = distance * 12
-  camera.updateProjectionMatrix()
-
-  controls.target.copy(center)
-  controls.minDistance = distance * 0.55
-  controls.maxDistance = distance * 2.2
-  controls.update()
-}
-
-function disposeMaterial(material: THREE.Material) {
-  for (const value of Object.values(material)) {
-    if (value && (value as THREE.Texture).isTexture) {
-      ;(value as THREE.Texture).dispose()
-    }
-  }
-  material.dispose()
-}
-
-function disposeObject(object: THREE.Object3D) {
-  object.traverse((child) => {
-    const mesh = child as THREE.Mesh
-    if (mesh.geometry) mesh.geometry.dispose()
-    const material = mesh.material as THREE.Material | THREE.Material[] | undefined
-    if (Array.isArray(material)) material.forEach(disposeMaterial)
-    else if (material) disposeMaterial(material)
-  })
-}
+/* ---------------- 加载流程 ---------------- */
 
 function mountObject(object: THREE.Object3D) {
-  if (!scene) return
-  if (currentObject) {
-    scene.remove(currentObject)
-    disposeObject(currentObject)
-  }
-  currentObject = object
-  scene.add(object)
-  fitCamera(object)
+  if (!stage.value?.setObject(object)) return
   phase.value = 'ready'
   progress.value = 1
   emit('ready')
 }
 
-function resize() {
-  const el = host.value
-  if (!el || !renderer || !camera) return
-  const width = el.clientWidth || 1
-  const height = el.clientHeight || 1
-  camera.aspect = width / height
-  camera.updateProjectionMatrix()
-  renderer.setSize(width, height, false)
-}
-
-function startLoop() {
-  if (!renderer || playing) return
-  playing = true
-  renderer.setAnimationLoop(() => {
-    controls?.update()
-    if (renderer && scene && camera) renderer.render(scene, camera)
-  })
-}
-
-function stopLoop() {
-  if (!renderer || !playing) return
-  playing = false
-  renderer.setAnimationLoop(null)
-}
-
-function onVisibilityChange() {
-  if (document.hidden) stopLoop()
-  else startLoop()
-}
-
-function setupRenderer() {
-  const el = host.value
-  if (!el) return false
-
-  try {
-    renderer = new THREE.WebGLRenderer({
-      antialias: true,
-      alpha: true,
-      powerPreference: 'high-performance',
-    })
-  } catch {
-    return false
-  }
-
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-  renderer.outputColorSpace = THREE.SRGBColorSpace
-  renderer.toneMapping = THREE.ACESFilmicToneMapping
-  renderer.toneMappingExposure = 1.05
-  renderer.domElement.style.display = 'block'
-  renderer.domElement.style.width = '100%'
-  renderer.domElement.style.height = '100%'
-  el.appendChild(renderer.domElement)
-
-  scene = new THREE.Scene()
-
-  // 用 RoomEnvironment 生成 IBL，材质质感接近对方的棚拍效果
-  const pmrem = new THREE.PMREMGenerator(renderer)
-  envTexture = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
-  scene.environment = envTexture
-  pmrem.dispose()
-
-  // 补一盏主光，压出金属高光
-  const keyLight = new THREE.DirectionalLight(0xffffff, 1.6)
-  keyLight.position.set(4, 6, 6)
-  scene.add(keyLight)
-
-  camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100)
-  controls = new OrbitControls(camera, renderer.domElement)
-  controls.enableDamping = true
-  controls.dampingFactor = 0.08
-  controls.enablePan = false
-  controls.rotateSpeed = 0.7
-  controls.zoomSpeed = 0.8
-
-  resize()
-  return true
+function handleStageError(message: string) {
+  phase.value = 'error'
+  errorText.value = message
+  emit('error', message)
 }
 
 async function boot() {
-  if (!host.value) return
-
-  if (!setupRenderer()) {
-    phase.value = 'error'
-    errorText.value = '当前浏览器不支持 WebGL'
-    emit('error', errorText.value)
-    return
-  }
-
-  startLoop()
+  if (phase.value === 'error') return
 
   try {
     const object = props.src ? await parseGLB(await fetchModel(props.src)) : createPlaceholder(props.variant)
-    if (!renderer) return // 加载过程中组件已卸载
     mountObject(object)
   } catch (error) {
     const message = error instanceof Error ? error.message : '模型加载失败'
@@ -384,56 +249,6 @@ async function boot() {
 
 onMounted(() => {
   void boot()
-
-  const el = host.value
-  if (el) {
-    resizeObserver = new ResizeObserver(() => resize())
-    resizeObserver.observe(el)
-
-    // 移出视口就暂停渲染
-    intersectionObserver = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) startLoop()
-          else stopLoop()
-        })
-      },
-      { threshold: 0.05 },
-    )
-    intersectionObserver.observe(el)
-  }
-
-  document.addEventListener('visibilitychange', onVisibilityChange)
-})
-
-onBeforeUnmount(() => {
-  document.removeEventListener('visibilitychange', onVisibilityChange)
-  resizeObserver?.disconnect()
-  resizeObserver = null
-  intersectionObserver?.disconnect()
-  intersectionObserver = null
-
-  stopLoop()
-  controls?.dispose()
-  controls = null
-
-  if (currentObject) {
-    disposeObject(currentObject)
-    currentObject = null
-  }
-
-  envTexture?.dispose()
-  envTexture = null
-
-  if (renderer) {
-    renderer.dispose()
-    renderer.forceContextLoss?.()
-    renderer.domElement.remove()
-    renderer = null
-  }
-
-  scene = null
-  camera = null
 })
 </script>
 
@@ -448,7 +263,7 @@ onBeforeUnmount(() => {
       aria-hidden="true"
     />
 
-    <div ref="host" class="model-viewer__stage"></div>
+    <ThreeStage ref="stage" @error="handleStageError" />
 
     <div v-if="phase !== 'ready'" class="model-viewer__loading">
       <template v-if="phase === 'loading'">
@@ -480,11 +295,6 @@ onBeforeUnmount(() => {
 
 .model-viewer:active {
   cursor: grabbing;
-}
-
-.model-viewer__stage {
-  position: absolute;
-  inset: 0;
 }
 
 .model-viewer__poster {
