@@ -14,7 +14,7 @@ const router = createRouter({
       name: 'home',
       component: () => import('@/views/HomeView.vue'),
       meta: {
-        title: '趣丸 Deep-Mesh · 创作工坊｜一张照片，一件拿在手里的作品',
+        title: '造物工坊｜一张照片，一件拿在手里的作品',
       },
     },
     {
@@ -22,7 +22,7 @@ const router = createRouter({
       name: 'store',
       component: () => import('@/views/StoreView.vue'),
       meta: {
-        title: '产品商城｜趣丸 Deep-Mesh 创作工坊',
+        title: '产品商城｜造物工坊',
       },
     },
     {
@@ -30,7 +30,7 @@ const router = createRouter({
       name: 'product-detail',
       component: () => import('@/views/ProductDetailView.vue'),
       meta: {
-        title: '作品详情｜趣丸 Deep-Mesh 创作工坊',
+        title: '作品详情｜造物工坊',
       },
     },
     {
@@ -38,7 +38,7 @@ const router = createRouter({
       name: 'community',
       component: () => import('@/views/CommunityView.vue'),
       meta: {
-        title: '社区画廊｜趣丸 Deep-Mesh 创作工坊',
+        title: '社区画廊｜造物工坊',
       },
     },
     {

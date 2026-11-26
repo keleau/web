@@ -18,6 +18,8 @@ export interface ProductItem {
   edition: string
   ratio: ProductRatio
   image: string
+  /** 3D 模型地址（.glb）。放进 public/models/ 后填 '/models/xxx.glb'；留空则展示内置占位浮雕 */
+  model?: string
 }
 
 export const products: ProductItem[] = [
@@ -216,7 +218,7 @@ export interface PromoTile {
 export const promoTiles: PromoTile[] = [
   {
     id: 'custom-pet',
-    brand: 'DEEP-MESH · CUSTOM',
+    brand: '造物工坊 · 定制',
     title: '把宠物做成\n一件能摆在桌上的作品',
     note: '一张照片 · 3–5 天 · 1 件起印',
     cta: '了解定制',
@@ -225,7 +227,7 @@ export const promoTiles: PromoTile[] = [
   },
   {
     id: 'corporate-gift',
-    brand: 'DEEP-MESH · GIFT',
+    brand: '造物工坊 · 礼品',
     title: '企业礼品\n可以批量，也可以唯一',
     note: '20 件起 · 统一包装 · 可开发票',
     cta: '索取方案',
@@ -234,7 +236,7 @@ export const promoTiles: PromoTile[] = [
   },
   {
     id: 'upload-model',
-    brand: 'DEEP-MESH · PRINT',
+    brand: '造物工坊 · 打印',
     title: '已有模型？\n直接打印成成品',
     note: 'OBJ / STL · 全彩树脂 · 一件起印',
     cta: '上传模型',

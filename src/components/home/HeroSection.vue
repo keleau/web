@@ -28,7 +28,7 @@ function jumpToProcess() {
 <template>
   <section class="hero" aria-labelledby="hero-title">
     <div class="hero__masthead">
-      <span class="hero__masthead-mark">趣丸 · 创作工坊</span>
+      <span class="hero__masthead-mark">造物工坊</span>
       <span class="hero__masthead-rule" aria-hidden="true"></span>
       <span class="hero__masthead-note">DONGGUAN — 2026</span>
       <span class="hero__masthead-spacer"></span>

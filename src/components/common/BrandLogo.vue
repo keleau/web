@@ -36,7 +36,7 @@ const gradientId = `brand-gradient-${useId().replace(/[^a-zA-Z0-9-]/g, '')}`
         opacity="0.42"
       />
     </svg>
-    <span v-if="!compact" class="brand-logo__text">趣丸Deep-Mesh</span>
+    <span v-if="!compact" class="brand-logo__text">造物工坊</span>
   </span>
 </template>
 

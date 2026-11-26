@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, defineAsyncComponent, ref } from 'vue'
 import { ArrowLeft, Check, Minus, Plus, ShoppingCart } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { RouterLink, useRoute } from 'vue-router'
@@ -8,10 +8,20 @@ import { products, type ProductItem } from '@/data/products'
 import { useCartStore } from '@/stores/cart'
 import { formatPrice, padIndex } from '@/utils/format'
 
+// three.js 单独分包，只有打开详情页时才加载
+const ModelViewer = defineAsyncComponent(() => import('@/components/store/ModelViewer.vue'))
+
 const route = useRoute()
 const cart = useCartStore()
 
 const quantity = ref(1)
+const show3d = ref(true)
+const viewerFailed = ref(false)
+
+function handleViewerError() {
+  viewerFailed.value = true
+  show3d.value = false
+}
 
 const product = computed<ProductItem | null>(() => {
   const id = route.params.id as string
@@ -48,8 +58,41 @@ function addToCart() {
     <div class="product-detail__main">
       <div class="product-detail__gallery">
         <div class="product-detail__frame">
-          <SmartImage :src="product.image" :alt="product.title" :lazy="false" />
+          <SmartImage
+            v-if="!show3d"
+            :src="product.image"
+            :alt="product.title"
+            :lazy="false"
+          />
+          <ModelViewer
+            v-else
+            :key="product.id"
+            :src="product.model"
+            :variant="product.id"
+            :poster="product.image"
+            @error="handleViewerError"
+          />
         </div>
+
+        <div v-if="!viewerFailed" class="product-detail__view-switch" role="group" aria-label="切换展示方式">
+          <button
+            type="button"
+            :class="{ 'is-active': show3d }"
+            :aria-pressed="show3d"
+            @click="show3d = true"
+          >
+            3D
+          </button>
+          <button
+            type="button"
+            :class="{ 'is-active': !show3d }"
+            :aria-pressed="!show3d"
+            @click="show3d = false"
+          >
+            图片
+          </button>
+        </div>
+
         <span class="product-detail__fig">N° {{ padIndex(products.indexOf(product) + 1) }}</span>
       </div>
 
@@ -171,10 +214,44 @@ function addToCart() {
 }
 
 .product-detail__frame {
+  position: relative;
   aspect-ratio: 4 / 5;
   overflow: hidden;
   border: 1px solid var(--hairline-strong);
   background: #ece7dc;
+}
+
+.product-detail__view-switch {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 4;
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius-pill);
+  background: rgba(9, 9, 11, 0.62);
+  backdrop-filter: blur(8px);
+}
+
+.product-detail__view-switch button {
+  padding: 3px 11px;
+  border-radius: var(--radius-pill);
+  color: rgba(255, 255, 255, 0.52);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.product-detail__view-switch button:hover {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.product-detail__view-switch button.is-active {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
 }
 
 .product-detail__fig {

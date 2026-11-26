@@ -55,7 +55,7 @@ function login() {
           <el-icon :size="18"><Menu /></el-icon>
         </button>
 
-        <RouterLink class="brand-link" to="/" aria-label="趣丸 Deep-Mesh 首页">
+        <RouterLink class="brand-link" to="/" aria-label="造物工坊 首页">
           <BrandLogo />
         </RouterLink>
 

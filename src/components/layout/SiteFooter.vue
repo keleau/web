@@ -38,7 +38,7 @@ import { footerGroups } from '@/data/footer'
       </div>
 
       <div class="site-footer__base">
-        <span>趣丸 Deep-Mesh · 创作工坊</span>
+        <span>造物工坊</span>
         <span>技术支持：Vast / 混元</span>
       </div>
     </div>
