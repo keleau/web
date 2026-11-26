@@ -36,6 +36,10 @@ function openProduct(product: ProductItem) {
 }
 
 function openPromo(promo: PromoTile) {
+  if (promo.id === 'custom-pet' || promo.id === 'upload-model') {
+    router.push({ name: 'custom' })
+    return
+  }
   ElMessage.info(`「${promo.cta}」为我们预留的服务入口，可先浏览社区里的真实作品。`)
 }
 </script>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, ref } from 'vue'
-import { ArrowLeft, Check, Minus, Plus, ShoppingCart } from '@element-plus/icons-vue'
+import { ArrowLeft, Check, MagicStick, Minus, Plus, ShoppingCart } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { RouterLink, useRoute } from 'vue-router'
 import SmartImage from '@/components/common/SmartImage.vue'
@@ -147,6 +147,14 @@ function addToCart() {
             <el-icon :size="14"><ShoppingCart /></el-icon>
             加入购物车
           </button>
+
+          <RouterLink
+            class="btn btn--ghost product-detail__custom"
+            :to="{ name: 'custom', query: { product: product.id } }"
+          >
+            <el-icon :size="14"><MagicStick /></el-icon>
+            定制此款
+          </RouterLink>
         </div>
       </div>
     </div>
@@ -393,6 +401,10 @@ function addToCart() {
 .product-detail__cta {
   flex: 1;
   min-width: 200px;
+}
+
+.product-detail__custom {
+  min-width: 148px;
 }
 
 .product-detail__related {

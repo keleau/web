@@ -34,6 +34,14 @@ const router = createRouter({
       },
     },
     {
+      path: '/custom',
+      name: 'custom',
+      component: () => import('@/views/CustomOrderView.vue'),
+      meta: {
+        title: '定制服务｜造物工坊',
+      },
+    },
+    {
       path: '/community',
       name: 'community',
       component: () => import('@/views/CommunityView.vue'),

@@ -13,7 +13,7 @@ import { RouterLink } from 'vue-router'
       </div>
 
       <div class="store-callout__actions">
-        <RouterLink class="store-callout__primary" :to="{ path: '/', hash: '#features' }">
+        <RouterLink class="store-callout__primary" to="/custom">
           开始定制
           <el-icon :size="13"><ArrowRight /></el-icon>
         </RouterLink>

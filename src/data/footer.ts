@@ -24,7 +24,7 @@ export const footerGroups: FooterGroup[] = [
     links: [
       { label: '产品商城', to: '/store' },
       { label: '限量版', to: '/store' },
-      { label: '定制服务', to: '/store' },
+      { label: '定制服务', to: '/custom' },
     ],
   },
   {

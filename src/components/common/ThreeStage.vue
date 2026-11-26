@@ -17,8 +17,10 @@ const props = withDefaults(
     fov?: number
     /** 色调映射曝光 */
     exposure?: number
+    /** 相机适配留白系数：越小主体越大 */
+    fitPadding?: number
   }>(),
-  { fov: 35, exposure: 1.05 },
+  { fov: 35, exposure: 1.05, fitPadding: 1.55 },
 )
 
 const emit = defineEmits<{
@@ -67,7 +69,7 @@ function fitCamera(object: THREE.Object3D) {
   const center = box.getCenter(new THREE.Vector3())
   const maxDim = Math.max(size.x, size.y, size.z) || 1
   const fov = (camera.fov * Math.PI) / 180
-  const distance = ((maxDim / 2) / Math.tan(fov / 2)) * 1.55
+  const distance = ((maxDim / 2) / Math.tan(fov / 2)) * props.fitPadding
 
   camera.position.set(center.x + distance * 0.28, center.y + distance * 0.2, center.z + distance)
   camera.near = distance / 100
