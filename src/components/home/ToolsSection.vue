@@ -31,7 +31,12 @@ function openFeature(title: string) {
 
     <ul class="tools__list">
       <li v-for="(item, index) in features" :key="item.id">
-        <button class="tool-row reveal" type="button" :style="{ transitionDelay: `${index * 60}ms` }" @click="openFeature(item.title)">
+        <button
+          class="tool-row reveal"
+          type="button"
+          :style="{ transitionDelay: `${index * 60}ms` }"
+          @click="openFeature(item.title)"
+        >
           <span class="tool-row__no">{{ String(index + 1).padStart(2, '0') }}</span>
 
           <span class="tool-row__icon">
@@ -76,7 +81,6 @@ function openFeature(title: string) {
   align-items: center;
   gap: clamp(14px, 2vw, 26px);
   padding: 18px 4px;
-  border-top: 0;
   border-bottom: 1px solid var(--hairline);
   text-align: left;
   transition: background-color 0.3s ease;
@@ -135,7 +139,7 @@ function openFeature(title: string) {
   transition:
     color 0.3s ease,
     border-color 0.3s ease,
-    background-color 0.3s ease;
+    background 0.3s ease;
 }
 
 .tool-row:hover .tool-row__icon {

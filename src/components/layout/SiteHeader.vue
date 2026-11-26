@@ -1,49 +1,36 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { Bell, Close, Menu, Service } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import BrandLogo from '@/components/common/BrandLogo.vue'
+import { primaryNav, type NavItem } from '@/data/navigation'
 
-interface NavItem {
-  label: string
-  action: 'home' | 'anchor' | 'demo'
-  target?: string
-}
-
+const route = useRoute()
 const router = useRouter()
 const drawerOpen = ref(false)
 
-const navItems: NavItem[] = [
-  { label: '首页', action: 'home' },
-  { label: '生产工具', action: 'anchor', target: '#features' },
-  { label: '手办商城', action: 'anchor', target: '#products' },
-  { label: '我的资产', action: 'demo' },
-  { label: '我的订单', action: 'demo' },
-  { label: '打印中心', action: 'demo' },
-]
+function isActive(item: NavItem) {
+  if (!item.to) return false
+  if (item.anchor) return route.path === '/' && route.hash === item.anchor
+  if (item.to === '/') return route.path === '/' && !route.hash
+  return route.path === item.to
+}
 
 function handleNav(item: NavItem) {
   drawerOpen.value = false
 
-  if (item.action === 'home') {
-    if (router.currentRoute.value.path === '/') {
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-      return
-    }
-    router.push('/')
+  if (item.demo || !item.to) {
+    ElMessage.info(`「${item.label}」需要登录后使用（演示）`)
     return
   }
 
-  if (item.action === 'anchor' && item.target) {
-    const target = document.querySelector(item.target)
-    if (target) {
-      target.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      return
-    }
+  if (route.path === item.to && !item.anchor) {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+    return
   }
 
-  ElMessage.info(`「${item.label}」需要登录后使用（演示）`)
+  router.push({ path: item.to, hash: item.anchor })
 }
 
 function contact() {
@@ -68,14 +55,16 @@ function login() {
           <el-icon :size="18"><Menu /></el-icon>
         </button>
 
-        <BrandLogo />
+        <RouterLink class="brand-link" to="/" aria-label="趣丸 Deep-Mesh 首页">
+          <BrandLogo />
+        </RouterLink>
 
         <nav class="site-nav" aria-label="主导航">
           <button
-            v-for="item in navItems"
+            v-for="item in primaryNav"
             :key="item.label"
             class="site-nav__item"
-            :class="{ 'is-active': item.action === 'home' }"
+            :class="{ 'is-active': isActive(item) }"
             type="button"
             @click="handleNav(item)"
           >
@@ -123,10 +112,10 @@ function login() {
 
       <nav class="drawer-nav" aria-label="移动端导航">
         <button
-          v-for="item in navItems"
+          v-for="item in primaryNav"
           :key="item.label"
           class="drawer-nav__item"
-          :class="{ 'is-active': item.action === 'home' }"
+          :class="{ 'is-active': isActive(item) }"
           type="button"
           @click="handleNav(item)"
         >
@@ -179,6 +168,11 @@ function login() {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.brand-link {
+  display: inline-flex;
+  flex-shrink: 0;
 }
 
 .icon-button {
@@ -243,7 +237,7 @@ function login() {
   display: none;
   height: 100%;
   align-items: center;
-  gap: 26px;
+  gap: 24px;
 }
 
 .site-nav__item {
@@ -358,7 +352,7 @@ function login() {
 @media (min-width: 1280px) {
   .site-nav {
     display: flex;
-    margin-left: 24px;
+    margin-left: 16px;
   }
 
   .menu-button {

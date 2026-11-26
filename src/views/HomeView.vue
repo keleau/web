@@ -1,20 +1,20 @@
 <script setup lang="ts">
-import HeroShowcase from '@/components/home/HeroShowcase.vue'
+import CommunityPreview from '@/components/home/CommunityPreview.vue'
+import HeroSection from '@/components/home/HeroSection.vue'
 import ProcessSection from '@/components/home/ProcessSection.vue'
-import FeaturesSection from '@/components/home/FeaturesSection.vue'
-import CommunitySection from '@/components/home/CommunitySection.vue'
-import ProductSection from '@/components/home/ProductSection.vue'
+import StorePreview from '@/components/home/StorePreview.vue'
+import ToolsSection from '@/components/home/ToolsSection.vue'
 </script>
 
 <template>
   <div class="home-page">
-    <HeroShowcase />
+    <HeroSection />
 
     <div class="home-flow">
       <ProcessSection />
-      <FeaturesSection />
-      <CommunitySection />
-      <ProductSection />
+      <ToolsSection />
+      <CommunityPreview />
+      <StorePreview />
     </div>
   </div>
 </template>

@@ -15,7 +15,12 @@ import { processSteps } from '@/data/home'
     </div>
 
     <ol class="process__rail">
-      <li v-for="(step, index) in processSteps" :key="step.no" class="process-step reveal" :style="{ transitionDelay: `${index * 70}ms` }">
+      <li
+        v-for="(step, index) in processSteps"
+        :key="step.no"
+        class="process-step reveal"
+        :style="{ transitionDelay: `${index * 70}ms` }"
+      >
         <span class="process-step__tick" aria-hidden="true"></span>
         <div class="process-step__head">
           <span class="process-step__no">{{ step.no }}</span>

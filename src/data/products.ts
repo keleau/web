@@ -1,0 +1,244 @@
+/* 产品商城数据：商品、促销位与筛选项都集中在这里 */
+
+export type ProductCategory = '潮流潮玩' | '珍藏纪念' | '创意礼物' | '装饰美学'
+
+export const productCategories = ['全部', '潮流潮玩', '珍藏纪念', '创意礼物', '装饰美学'] as const
+export type ProductFilter = (typeof productCategories)[number]
+
+export type ProductBadge = 'fan' | 'limited'
+export type ProductRatio = '1:1' | '4:5' | '3:4' | '5:4'
+
+export interface ProductItem {
+  id: string
+  title: string
+  price: number
+  sold: number
+  category: ProductCategory
+  badge?: ProductBadge
+  edition: string
+  ratio: ProductRatio
+  image: string
+}
+
+export const products: ProductItem[] = [
+  {
+    id: 'spring-symphony',
+    title: '《春日交响曲》2.9D 浮雕',
+    price: 1350,
+    sold: 0,
+    category: '装饰美学',
+    badge: 'limited',
+    edition: '限量 12 版',
+    ratio: '4:5',
+    image: '/images/products/spring-symphony.jpg',
+  },
+  {
+    id: 'nine-phoenix',
+    title: '《九凤加冕》2.9D 浮雕',
+    price: 1350,
+    sold: 0,
+    category: '珍藏纪念',
+    badge: 'limited',
+    edition: '限量 8 版',
+    ratio: '4:5',
+    image: '/images/products/nine-phoenix.jpg',
+  },
+  {
+    id: 'flowers-fade',
+    title: '《随花而逝》2.9D 浮雕',
+    price: 1350,
+    sold: 0,
+    category: '装饰美学',
+    badge: 'fan',
+    edition: '开放版',
+    ratio: '4:5',
+    image: '/images/products/flowers-fade.jpg',
+  },
+  {
+    id: 'six-arm-mahakala',
+    title: '《六臂大黑天》2.9D 浮雕',
+    price: 299,
+    sold: 0,
+    category: '珍藏纪念',
+    badge: 'limited',
+    edition: '限量 16 版',
+    ratio: '4:5',
+    image: '/images/products/six-arm-mahakala.jpg',
+  },
+  {
+    id: 'white-wealth-deity',
+    title: '《白财神》2.9D 浮雕',
+    price: 299,
+    sold: 1,
+    category: '珍藏纪念',
+    badge: 'fan',
+    edition: '开放版',
+    ratio: '4:5',
+    image: '/images/products/white-wealth-deity.jpg',
+  },
+  {
+    id: 'zhulong',
+    title: '《山海·烛龙》2.9D 浮雕',
+    price: 880,
+    sold: 0,
+    category: '珍藏纪念',
+    badge: 'limited',
+    edition: '限量 6 版',
+    ratio: '4:5',
+    image: '/images/products/zhulong.jpg',
+  },
+  {
+    id: 'thousand-year-bond',
+    title: '《千年之缘》2.9D 浮雕',
+    price: 1350,
+    sold: 0,
+    category: '创意礼物',
+    badge: 'fan',
+    edition: '开放版',
+    ratio: '4:5',
+    image: '/images/products/thousand-year-bond.jpg',
+  },
+  {
+    id: 'soul-dwelling',
+    title: '《灵魂唯一的栖所》2.9D 浮雕',
+    price: 1350,
+    sold: 0,
+    category: '创意礼物',
+    badge: 'limited',
+    edition: '限量 9 版',
+    ratio: '4:5',
+    image: '/images/products/soul-dwelling.jpg',
+  },
+  {
+    id: 'clay-guard',
+    title: '《陶俑·守》桌面摆件',
+    price: 480,
+    sold: 0,
+    category: '创意礼物',
+    badge: 'limited',
+    edition: '限量 24 版',
+    ratio: '4:5',
+    image: '/images/products/clay-guard.jpg',
+  },
+  {
+    id: 'thousand-miles',
+    title: '《千里江山图》2.9D 浮雕',
+    price: 1350,
+    sold: 0,
+    category: '装饰美学',
+    badge: 'fan',
+    edition: '开放版',
+    ratio: '5:4',
+    image: '/images/products/thousand-miles.jpg',
+  },
+  {
+    id: 'dunhuang-flying',
+    title: '《敦煌飞天》2.9D 浮雕',
+    price: 680,
+    sold: 0,
+    category: '装饰美学',
+    badge: 'fan',
+    edition: '开放版',
+    ratio: '4:5',
+    image: '/images/products/dunhuang-flying.jpg',
+  },
+  {
+    id: 'midsummer-carnival',
+    title: '《仲夏夜狂欢》2.9D 浮雕',
+    price: 1350,
+    sold: 0,
+    category: '装饰美学',
+    badge: 'fan',
+    edition: '开放版',
+    ratio: '5:4',
+    image: '/images/products/midsummer-carnival.jpg',
+  },
+  {
+    id: 'zodiac-awakening',
+    title: '《生肖觉醒》2.9D 浮雕',
+    price: 1350,
+    sold: 2,
+    category: '潮流潮玩',
+    badge: 'limited',
+    edition: '限量 20 版',
+    ratio: '4:5',
+    image: '/images/products/zodiac-awakening.jpg',
+  },
+  {
+    id: 'space-roaming',
+    title: '《星际漫游》2.9D 浮雕',
+    price: 259,
+    sold: 0,
+    category: '潮流潮玩',
+    badge: 'limited',
+    edition: '限量 30 版',
+    ratio: '4:5',
+    image: '/images/products/space-roaming.jpg',
+  },
+  {
+    id: 'mecha-toy',
+    title: '《潮玩机甲》2.9D 浮雕',
+    price: 199,
+    sold: 5,
+    category: '潮流潮玩',
+    badge: 'fan',
+    edition: '开放版',
+    ratio: '4:5',
+    image: '/images/products/mecha-toy.jpg',
+  },
+  {
+    id: 'mecha-butterfly',
+    title: '《机械蝴蝶》雕塑摆件',
+    price: 399,
+    sold: 0,
+    category: '潮流潮玩',
+    badge: 'fan',
+    edition: '开放版',
+    ratio: '4:5',
+    image: '/images/products/mecha-butterfly.jpg',
+  },
+]
+
+/* 商城网格里的「服务位」：模拟参考站的品牌促销卡，但不搬运其素材和组件 */
+
+export type PromoTone = 'sand' | 'paper' | 'ink'
+
+export interface PromoTile {
+  id: string
+  brand: string
+  title: string
+  note: string
+  cta: string
+  image: string
+  tone: PromoTone
+}
+
+export const promoTiles: PromoTile[] = [
+  {
+    id: 'custom-pet',
+    brand: 'DEEP-MESH · CUSTOM',
+    title: '把宠物做成\n一件能摆在桌上的作品',
+    note: '一张照片 · 3–5 天 · 1 件起印',
+    cta: '了解定制',
+    image: '/images/community/pet-fridge-magnet.jpg',
+    tone: 'sand',
+  },
+  {
+    id: 'corporate-gift',
+    brand: 'DEEP-MESH · GIFT',
+    title: '企业礼品\n可以批量，也可以唯一',
+    note: '20 件起 · 统一包装 · 可开发票',
+    cta: '索取方案',
+    image: '/images/products/clay-guard.jpg',
+    tone: 'paper',
+  },
+  {
+    id: 'upload-model',
+    brand: 'DEEP-MESH · PRINT',
+    title: '已有模型？\n直接打印成成品',
+    note: 'OBJ / STL · 全彩树脂 · 一件起印',
+    cta: '上传模型',
+    image: '/images/products/mecha-toy.jpg',
+    tone: 'ink',
+  },
+]

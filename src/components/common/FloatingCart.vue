@@ -2,9 +2,11 @@
 import { ShoppingCart } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { storeToRefs } from 'pinia'
+import { useRouter } from 'vue-router'
 import { useCartStore } from '@/stores/cart'
 
 const cart = useCartStore()
+const router = useRouter()
 const { count } = storeToRefs(cart)
 
 function openCart() {
@@ -12,7 +14,8 @@ function openCart() {
     ElMessage.info(`购物车里有 ${count.value} 件商品（演示）`)
     return
   }
-  ElMessage.info('购物车还是空的，去挑一件灵感商品吧')
+  ElMessage.info('购物车还是空的，去商城挑一件')
+  router.push('/store')
 }
 </script>
 
@@ -35,9 +38,9 @@ function openCart() {
   height: 48px;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--border);
+  border: 1px solid var(--hairline);
   border-radius: 14px;
-  background: rgba(38, 38, 42, 0.9);
+  background: rgba(24, 24, 28, 0.9);
   color: var(--text-secondary);
   box-shadow: 0 14px 30px rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(12px);

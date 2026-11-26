@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# TRAE / IDE 预览临时资料（包含 Chrome profile、锁文件等，绝不应入库）
+.preview/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

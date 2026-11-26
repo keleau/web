@@ -1,20 +1,7 @@
 <script setup lang="ts">
+import { RouterLink } from 'vue-router'
 import BrandLogo from '@/components/common/BrandLogo.vue'
-
-const groups = [
-  {
-    title: '创作',
-    links: ['生产工具', '制作流程', '定价说明'],
-  },
-  {
-    title: '商店',
-    links: ['作品商店', '限量版', '定制服务'],
-  },
-  {
-    title: '关于',
-    links: ['联系我们', '隐私政策', '服务条款'],
-  },
-]
+import { footerGroups } from '@/data/footer'
 </script>
 
 <template>
@@ -28,9 +15,12 @@ const groups = [
         </div>
 
         <nav class="site-footer__links" aria-label="页脚导航">
-          <div v-for="group in groups" :key="group.title" class="site-footer__group">
+          <div v-for="group in footerGroups" :key="group.title" class="site-footer__group">
             <span>{{ group.title }}</span>
-            <a v-for="link in group.links" :key="link" href="#" @click.prevent>{{ link }}</a>
+            <template v-for="link in group.links" :key="link.label">
+              <RouterLink v-if="link.to" :to="link.to">{{ link.label }}</RouterLink>
+              <a v-else href="#" @click.prevent>{{ link.label }}</a>
+            </template>
           </div>
         </nav>
 

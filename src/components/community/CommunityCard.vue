@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import SmartImage from '@/components/common/SmartImage.vue'
-import type { CommunityItem } from '@/data/home'
+import type { CommunityItem } from '@/data/community'
 
 const props = defineProps<{
   item: CommunityItem
