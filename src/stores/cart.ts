@@ -17,12 +17,23 @@ function loadCartItems(): CartItem[] {
   const stored = readStorage<StoredCartItem[]>(STORAGE_KEYS.cart, [])
   if (!Array.isArray(stored)) return []
 
-  return stored.flatMap((entry) => {
-    if (!entry || typeof entry.id !== 'string') return []
+  // 用 Map 去重：历史数据里可能出现同一商品多行，合并数量而不是展示重复行
+  const byId = new Map<string, CartItem>()
+  for (const entry of stored) {
+    if (!entry || typeof entry.id !== 'string') continue
     const product = getProductById(entry.id)
-    if (!product) return []
-    return [{ product, quantity: normalizeQuantity(entry.quantity) }]
-  })
+    if (!product) continue
+
+    const quantity = normalizeQuantity(entry.quantity)
+    const existing = byId.get(product.id)
+    if (existing) {
+      existing.quantity = normalizeQuantity(existing.quantity + quantity)
+    } else {
+      byId.set(product.id, { product, quantity })
+    }
+  }
+
+  return [...byId.values()]
 }
 
 /**

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { Close, RefreshRight } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import type { ReferenceFile, ReferenceUploader as UploaderFn } from '@/types/upload'
@@ -67,6 +67,15 @@ function revokePreview(item: ReferenceFile) {
   if (item.previewUrl.startsWith('blob:')) URL.revokeObjectURL(item.previewUrl)
 }
 
+/** 用 uid 判断，避免 reactive 数组读出的代理对象与原始对象引用不一致 */
+function hasItem(item: ReferenceFile) {
+  return items.value.some((current) => current.uid === item.uid)
+}
+
+function removeLocalItem(item: ReferenceFile) {
+  items.value = items.value.filter((current) => current.uid !== item.uid)
+}
+
 /** 父级重置或传入初始列表时同步内部状态 */
 function syncFromModel(next: ReferenceFile[]) {
   if (next === lastEmitted) return
@@ -89,7 +98,7 @@ function syncFromModel(next: ReferenceFile[]) {
       continue
     }
 
-    const entry: ReferenceFile = {
+    const entry = reactive<ReferenceFile>({
       uid: source.uid || createUid(),
       file: source.file,
       previewUrl: source.previewUrl || URL.createObjectURL(source.file),
@@ -98,7 +107,7 @@ function syncFromModel(next: ReferenceFile[]) {
       referenceId: source.referenceId,
       remoteUrl: source.remoteUrl,
       errorMessage: source.errorMessage,
-    }
+    })
     result.push(entry)
     if (entry.status === 'local' && props.uploader) pendingUploads.push(entry)
   }
@@ -169,13 +178,13 @@ function addFiles(input: FileList | File[]) {
   }
 
   for (const file of accepted) {
-    const item: ReferenceFile = {
+    const item = reactive<ReferenceFile>({
       uid: createUid(),
       file,
       previewUrl: URL.createObjectURL(file),
       status: 'local',
       progress: 0,
-    }
+    })
     items.value.push(item)
     if (props.uploader) void uploadItem(item)
   }
@@ -193,12 +202,12 @@ async function uploadItem(item: ReferenceFile) {
 
   try {
     const result = await uploader(item.file, (percent) => {
-      if (!items.value.includes(item)) return
+      if (!hasItem(item)) return
       item.progress = Math.min(100, Math.max(0, Math.round(percent)))
     })
 
     // 上传期间被移除：丢弃结果，避免状态写回已删除条目
-    if (!items.value.includes(item)) return
+    if (!hasItem(item)) return
 
     item.referenceId = result.id
     item.remoteUrl = result.url
@@ -206,7 +215,7 @@ async function uploadItem(item: ReferenceFile) {
     item.progress = 100
     emitFiles()
   } catch (error) {
-    if (!items.value.includes(item)) return
+    if (!hasItem(item)) return
     item.status = 'error'
     item.progress = 0
     item.errorMessage = error instanceof Error ? error.message : '上传失败'
@@ -217,14 +226,14 @@ async function uploadItem(item: ReferenceFile) {
 
 function removeItem(item: ReferenceFile) {
   if (item.status === 'uploading') {
-    // 先移出列表，上传回调会因 items 不包含该条目而丢弃结果
-    items.value = items.value.filter((current) => current !== item)
+    // 先移出列表，上传回调会因 uid 不在列表而丢弃结果
+    removeLocalItem(item)
     revokePreview(item)
     emitFiles()
     return
   }
   revokePreview(item)
-  items.value = items.value.filter((current) => current !== item)
+  removeLocalItem(item)
   emitFiles()
 }
 

@@ -87,6 +87,7 @@ service.interceptors.response.use(
       if (body.code === 0) return body.data
 
       const message = body.message || '请求失败'
+      if (body.code === 401) removeStorage(STORAGE_KEYS.token)
       if (!config.skipErrorMessage) notifyError(message)
       return Promise.reject(
         new ApiError(message, body.code, {

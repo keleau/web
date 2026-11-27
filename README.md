@@ -64,7 +64,7 @@ VITE_USE_MOCK=true
 
 | 文件 | 大小 | gzip |
 | --- | --- | --- |
-| `index.js`（主包） | 239.00 KB | 84.99 KB |
+| `index.js`（主包） | 239.11 KB | 85.04 KB |
 | `ThreeStage.js`（3D） | 628.21 KB | 156.87 KB |
 | `index.css` | 381.60 KB | 52.48 KB |
 

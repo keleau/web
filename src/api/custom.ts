@@ -32,7 +32,7 @@ export interface CustomOrderPayload {
 export interface CustomOrderResult {
   orderId: string
   orderNo: string
-  status: 'pending' | 'confirmed' | 'producing' | 'shipped' | 'completed'
+  status: 'pending' | 'confirmed' | 'producing' | 'shipped' | 'completed' | 'cancelled'
 }
 
 export type ModelingStatus = 'queued' | 'processing' | 'succeeded' | 'failed'

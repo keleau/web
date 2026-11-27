@@ -104,6 +104,12 @@ export function useModelingTask(options: UseModelingTaskOptions = {}) {
 
   /** 开始（或重启）一次建模任务 */
   async function start(payload: CreateModelingTaskPayload) {
+    // 旧任务还在跑时先通知后端释放算力，避免切换参考图后留下孤儿任务
+    const previousTaskId = isBusy.value ? task.value?.taskId : undefined
+    if (previousTaskId) {
+      void cancelModelingTask(previousTaskId).catch(() => {})
+    }
+
     const token = ++requestToken
     clearTimer()
     lastPayload = payload
