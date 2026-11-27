@@ -1,21 +1,13 @@
 <script setup lang="ts">
 import { ShoppingCart } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
 import { storeToRefs } from 'pinia'
-import { useRouter } from 'vue-router'
 import { useCartStore } from '@/stores/cart'
 
 const cart = useCartStore()
-const router = useRouter()
 const { count } = storeToRefs(cart)
 
 function openCart() {
-  if (count.value > 0) {
-    ElMessage.info(`购物车里有 ${count.value} 件商品（演示）`)
-    return
-  }
-  ElMessage.info('购物车还是空的，去商城挑一件')
-  router.push('/store')
+  cart.openDrawer()
 }
 </script>
 

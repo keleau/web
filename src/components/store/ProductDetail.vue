@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent, ref } from 'vue'
-import { ArrowLeft, Check, MagicStick, Minus, Plus, ShoppingCart } from '@element-plus/icons-vue'
+import { computed, defineAsyncComponent, ref, watch, watchEffect } from 'vue'
+import { ArrowLeft, Check, MagicStick, ShoppingCart } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { RouterLink, useRoute } from 'vue-router'
 import SmartImage from '@/components/common/SmartImage.vue'
-import { products, type ProductItem } from '@/data/products'
+import QuantityStepper from '@/components/common/QuantityStepper.vue'
+import { getProductById, getProductIndex, getRelatedProducts } from '@/services/catalog'
+import type { ProductItem } from '@/types/catalog'
 import { useCartStore } from '@/stores/cart'
 import { formatPrice, padIndex } from '@/utils/format'
 
@@ -24,26 +26,41 @@ function handleViewerError() {
 }
 
 const product = computed<ProductItem | null>(() => {
-  const id = route.params.id as string
-  return products.find((p) => p.id === id) ?? null
+  const id = route.params.id
+  return getProductById(Array.isArray(id) ? id[0] : id)
 })
 
 const isLimited = computed(() => product.value?.badge === 'limited')
-const related = computed<ProductItem[]>(() => {
-  if (!product.value) return []
-  const sameCategory = products.filter(
-    (p) => p.category === product.value!.category && p.id !== product.value!.id,
-  )
-  return sameCategory.slice(0, 4)
-})
 
-function changeQuantity(delta: number) {
-  quantity.value = Math.max(1, quantity.value + delta)
-}
+const productNo = computed(() =>
+  product.value ? padIndex(getProductIndex(product.value) + 1) : '',
+)
+
+const related = computed<ProductItem[]>(() =>
+  product.value ? getRelatedProducts(product.value) : [],
+)
+
+// 同组件在不同商品间复用（/store/a → /store/b）时，重置页面级状态
+watch(
+  () => route.params.id,
+  () => {
+    quantity.value = 1
+    show3d.value = true
+    viewerFailed.value = false
+  },
+)
+
+// 同一个组件实例切换商品时，同步浏览器标题
+watchEffect(() => {
+  if (product.value) {
+    document.title = `${product.value.title}｜造物工坊`
+  }
+})
 
 function addToCart() {
   if (!product.value) return
   cart.add(product.value, quantity.value)
+  cart.openDrawer()
   ElMessage.success(`已加入购物车：${product.value.title} × ${quantity.value}`)
 }
 </script>
@@ -93,7 +110,7 @@ function addToCart() {
           </button>
         </div>
 
-        <span class="product-detail__fig">N° {{ padIndex(products.indexOf(product) + 1) }}</span>
+        <span class="product-detail__fig">N° {{ productNo }}</span>
       </div>
 
       <div class="product-detail__info">
@@ -133,15 +150,7 @@ function addToCart() {
         </dl>
 
         <div class="product-detail__actions">
-          <div class="quantity-control" role="group" aria-label="数量选择">
-            <button type="button" aria-label="减少" @click="changeQuantity(-1)">
-              <el-icon :size="13"><Minus /></el-icon>
-            </button>
-            <span>{{ quantity }}</span>
-            <button type="button" aria-label="增加" @click="changeQuantity(1)">
-              <el-icon :size="13"><Plus /></el-icon>
-            </button>
-          </div>
+          <QuantityStepper v-model="quantity" :max="99" label="购买数量" />
 
           <button class="btn btn--primary product-detail__cta" type="button" @click="addToCart">
             <el-icon :size="14"><ShoppingCart /></el-icon>
@@ -362,40 +371,6 @@ function addToCart() {
   flex-wrap: wrap;
   align-items: center;
   gap: 14px;
-}
-
-.quantity-control {
-  display: inline-flex;
-  align-items: center;
-  border: 1px solid var(--hairline-strong);
-  border-radius: var(--radius-pill);
-  overflow: hidden;
-}
-
-.quantity-control button {
-  display: inline-flex;
-  width: 38px;
-  height: 46px;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-secondary);
-  transition:
-    background-color 0.2s ease,
-    color 0.2s ease;
-}
-
-.quantity-control button:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--text-primary);
-}
-
-.quantity-control span {
-  min-width: 40px;
-  color: var(--text-primary);
-  font-size: 13px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  text-align: center;
 }
 
 .product-detail__cta {

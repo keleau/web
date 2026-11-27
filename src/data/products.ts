@@ -1,26 +1,13 @@
-/* 产品商城数据：商品、促销位与筛选项都集中在这里 */
+/* 产品商城数据：mock 数据库。组件请通过 @/services/catalog 读取，不要直接依赖此文件 */
+import type { ProductFilter, ProductItem, PromoTile } from '@/types/catalog'
 
-export type ProductCategory = '潮流潮玩' | '珍藏纪念' | '创意礼物' | '装饰美学'
-
-export const productCategories = ['全部', '潮流潮玩', '珍藏纪念', '创意礼物', '装饰美学'] as const
-export type ProductFilter = (typeof productCategories)[number]
-
-export type ProductBadge = 'fan' | 'limited'
-export type ProductRatio = '1:1' | '4:5' | '3:4' | '5:4'
-
-export interface ProductItem {
-  id: string
-  title: string
-  price: number
-  sold: number
-  category: ProductCategory
-  badge?: ProductBadge
-  edition: string
-  ratio: ProductRatio
-  image: string
-  /** 3D 模型地址（.glb）。放进 public/models/ 后填 '/models/xxx.glb'；留空则展示内置占位浮雕 */
-  model?: string
-}
+export const productCategories = [
+  '全部',
+  '潮流潮玩',
+  '珍藏纪念',
+  '创意礼物',
+  '装饰美学',
+] as const satisfies readonly ProductFilter[]
 
 export const products: ProductItem[] = [
   {
@@ -203,18 +190,6 @@ export const products: ProductItem[] = [
 
 /* 商城网格里的「服务位」：模拟参考站的品牌促销卡，但不搬运其素材和组件 */
 
-export type PromoTone = 'sand' | 'paper' | 'ink'
-
-export interface PromoTile {
-  id: string
-  brand: string
-  title: string
-  note: string
-  cta: string
-  image: string
-  tone: PromoTone
-}
-
 export const promoTiles: PromoTile[] = [
   {
     id: 'custom-pet',
@@ -224,6 +199,8 @@ export const promoTiles: PromoTile[] = [
     cta: '了解定制',
     image: '/images/community/pet-fridge-magnet.jpg',
     tone: 'sand',
+    caption: '定制服务',
+    captionNote: '按需报价',
   },
   {
     id: 'corporate-gift',
@@ -233,6 +210,8 @@ export const promoTiles: PromoTile[] = [
     cta: '索取方案',
     image: '/images/products/clay-guard.jpg',
     tone: 'paper',
+    caption: '企业礼品',
+    captionNote: '20 件起',
   },
   {
     id: 'upload-model',
@@ -242,5 +221,7 @@ export const promoTiles: PromoTile[] = [
     cta: '上传模型',
     image: '/images/products/mecha-toy.jpg',
     tone: 'ink',
+    caption: '模型打印',
+    captionNote: '一件起印',
   },
 ]

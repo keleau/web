@@ -1,19 +1,12 @@
-/* 社区画廊数据：首页只取前几件，社区页使用完整列表 */
+/* 社区画廊数据：mock 数据库。组件请通过 @/services/community 读取 */
+import type { CommunityFilter, CommunityItem } from '@/types/community'
 
-export type CommunityCategory = '萌宠摆件' | '黏土浮雕' | '冰箱贴'
-
-export const communityCategories = ['全部', '萌宠摆件', '黏土浮雕', '冰箱贴'] as const
-export type CommunityFilter = (typeof communityCategories)[number]
-
-export interface CommunityItem {
-  id: string
-  title: string
-  category: CommunityCategory
-  maker: string
-  craft: string
-  size: string
-  image: string
-}
+export const communityCategories = [
+  '全部',
+  '萌宠摆件',
+  '黏土浮雕',
+  '冰箱贴',
+] as const satisfies readonly CommunityFilter[]
 
 export const communityItems: CommunityItem[] = [
   {

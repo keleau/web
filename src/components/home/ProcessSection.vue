@@ -1,18 +1,17 @@
 <script setup lang="ts">
-import { processSteps } from '@/data/home'
+import SectionHead from '@/components/common/SectionHead.vue'
+import { getProcessSteps } from '@/services/content'
+
+const processSteps = getProcessSteps()
 </script>
 
 <template>
   <section id="process" class="page-section process" aria-label="制作流程">
-    <div class="section-head">
-      <div class="section-head__title">
-        <span class="kicker">02 — workflow</span>
-        <h2>一件作品，四个阶段</h2>
-      </div>
-      <p class="section-head__note">
-        从上传到交付都在同一条产线上完成，不外包、不拆单。每一步的进度都能在订单里看到。
-      </p>
-    </div>
+    <SectionHead
+      kicker="02 — workflow"
+      title="一件作品，四个阶段"
+      note="从上传到交付都在同一条产线上完成，不外包、不拆单。每一步的进度都能在订单里看到。"
+    />
 
     <ol class="process__rail">
       <li

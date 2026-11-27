@@ -6,7 +6,16 @@
  * 叠在带厚度的底板上，形成类似全彩树脂浮雕的立体效果。
  */
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import * as THREE from 'three'
+import {
+  ExtrudeGeometry,
+  Group,
+  Mesh,
+  MeshPhysicalMaterial,
+  PlaneGeometry,
+  SRGBColorSpace,
+  Shape,
+  Texture,
+} from 'three'
 import ThreeStage from '@/components/common/ThreeStage.vue'
 
 const props = defineProps<{
@@ -32,7 +41,7 @@ let disposed = false
 let loadToken = 0
 
 function roundedRect(width: number, height: number, radius: number) {
-  const shape = new THREE.Shape()
+  const shape = new Shape()
   const x = -width / 2
   const y = -height / 2
   const r = Math.min(radius, width / 2, height / 2)
@@ -70,14 +79,14 @@ function sampleLuminance(image: HTMLImageElement) {
   return { data: context.getImageData(0, 0, width, height).data, width, height }
 }
 
-function createRelief(image: HTMLImageElement, texture: THREE.Texture) {
+function createRelief(image: HTMLImageElement, texture: Texture) {
   const aspect = image.naturalWidth / image.naturalHeight
   const width = 3
   const height = width / aspect
   const segX = SEGMENTS
   const segY = Math.max(56, Math.round(SEGMENTS / aspect))
 
-  const geometry = new THREE.PlaneGeometry(width, height, segX, segY)
+  const geometry = new PlaneGeometry(width, height, segX, segY)
   const sampling = sampleLuminance(image)
 
   if (sampling) {
@@ -104,9 +113,9 @@ function createRelief(image: HTMLImageElement, texture: THREE.Texture) {
     geometry.computeVertexNormals()
   }
 
-  const relief = new THREE.Mesh(
+  const relief = new Mesh(
     geometry,
-    new THREE.MeshPhysicalMaterial({
+    new MeshPhysicalMaterial({
       map: texture,
       roughness: 0.58,
       metalness: 0.03,
@@ -116,7 +125,7 @@ function createRelief(image: HTMLImageElement, texture: THREE.Texture) {
   )
 
   const plateShape = roundedRect(width + 0.16, height + 0.16, 0.14)
-  const plateGeometry = new THREE.ExtrudeGeometry(plateShape, {
+  const plateGeometry = new ExtrudeGeometry(plateShape, {
     depth: 0.18,
     bevelEnabled: true,
     bevelThickness: 0.02,
@@ -124,9 +133,9 @@ function createRelief(image: HTMLImageElement, texture: THREE.Texture) {
     bevelSegments: 2,
     curveSegments: 8,
   })
-  const plate = new THREE.Mesh(
+  const plate = new Mesh(
     plateGeometry,
-    new THREE.MeshPhysicalMaterial({
+    new MeshPhysicalMaterial({
       color: 0x222227,
       roughness: 0.52,
       metalness: 0.18,
@@ -136,15 +145,27 @@ function createRelief(image: HTMLImageElement, texture: THREE.Texture) {
   )
   plate.position.z = -0.16
 
-  const group = new THREE.Group()
+  const group = new Group()
   group.add(plate)
   group.add(relief)
   group.rotation.y = -0.08
   return group
 }
 
+/** 舞台挂载失败时手动回收几何体/材质/纹理，避免泄漏 */
+function disposeRelief(object: Group, texture: Texture) {
+  object.traverse((child) => {
+    if (!(child instanceof Mesh)) return
+    child.geometry.dispose()
+    const materials = Array.isArray(child.material) ? child.material : [child.material]
+    materials.forEach((material) => material.dispose())
+  })
+  texture.dispose()
+}
+
 async function build(src: string) {
   const token = Number(++loadToken)
+  stage.value?.clearObject()
   phase.value = 'loading'
   errorText.value = ''
 
@@ -152,13 +173,16 @@ async function build(src: string) {
     const image = await loadImage(src)
     if (disposed || token !== loadToken) return
 
-    const texture = new THREE.Texture(image)
-    texture.colorSpace = THREE.SRGBColorSpace
+    const texture = new Texture(image)
+    texture.colorSpace = SRGBColorSpace
     texture.anisotropy = 4
     texture.needsUpdate = true
 
     const object = createRelief(image, texture)
-    if (!stage.value?.setObject(object)) throw new Error('3D 舞台未就绪')
+    if (!stage.value?.setObject(object)) {
+      disposeRelief(object, texture)
+      throw new Error('3D 舞台未就绪')
+    }
 
     phase.value = 'ready'
     emit('ready')
@@ -183,7 +207,14 @@ onMounted(() => {
 watch(
   () => props.src,
   (src) => {
-    if (src) void build(src)
+    if (src) {
+      void build(src)
+    } else {
+      loadToken += 1
+      stage.value?.clearObject()
+      phase.value = 'loading'
+      errorText.value = ''
+    }
   },
 )
 

@@ -1,82 +1,131 @@
 import { defineStore } from 'pinia'
-import type { ProductItem } from '@/data/products'
+import { getProductById } from '@/services/catalog'
+import type { CartItem, StoredCartItem } from '@/types/cart'
+import type { ProductItem } from '@/types/catalog'
+import { readStorage, STORAGE_KEYS, writeStorage } from '@/utils/storage'
 
-export interface CartItem {
-  product: ProductItem
-  quantity: number
+const MAX_QUANTITY = 99
+
+/** 数量归一化：非法值回落到 1，并限制在 1–99 */
+export function normalizeQuantity(value: number): number {
+  if (!Number.isFinite(value)) return 1
+  return Math.min(MAX_QUANTITY, Math.max(1, Math.trunc(value)))
+}
+
+/** 从 localStorage 还原购物车；商品以当前商品表为准，已下架商品自动剔除 */
+function loadCartItems(): CartItem[] {
+  const stored = readStorage<StoredCartItem[]>(STORAGE_KEYS.cart, [])
+  if (!Array.isArray(stored)) return []
+
+  return stored.flatMap((entry) => {
+    if (!entry || typeof entry.id !== 'string') return []
+    const product = getProductById(entry.id)
+    if (!product) return []
+    return [{ product, quantity: normalizeQuantity(entry.quantity) }]
+  })
 }
 
 /**
  * 购物车 Store
- * 负责商品增删改、数量变化、小计与清空。
- * 所有持久化通过 sessionStorage（演示）。
+ * - 增删改、数量变化、小计与清空
+ * - 持久化到 localStorage（只存 id + 数量，价格始终取商品表）
+ * - 抽屉开关也放在这里，FloatingCart 与 CartDrawer 共享状态
  */
 export const useCartStore = defineStore('cart', {
   state: () => ({
-    items: [] as CartItem[],
+    items: loadCartItems(),
+    drawerOpen: false,
   }),
 
   getters: {
-    /** 购物车里商品件数（可能重复） */
+    /** 购物车里商品件数（含重复） */
     count: (state) => state.items.reduce((sum, item) => sum + item.quantity, 0),
 
     /** 唯一商品种类数 */
     uniqueCount: (state) => state.items.length,
 
-    /** 总价 */
+    /** 总价（按分计算后还原，避免浮点误差） */
     total: (state) =>
-      state.items.reduce((sum, item) => sum + item.product.price * item.quantity, 0),
+      Math.round(
+        state.items.reduce((sum, item) => sum + item.product.price * item.quantity, 0) * 100,
+      ) / 100,
 
     /** 是否为空 */
     isEmpty: (state) => state.items.length === 0,
   },
 
   actions: {
-    /** 加入购物车；已存在则 +1 */
-    add(product: ProductItem, quantity = 1) {
-      const existing = this.items.find((item) => item.product.id === product.id)
-      if (existing) {
-        existing.quantity += quantity
-      } else {
-        this.items.push({ product, quantity })
-      }
+    /** 写入 localStorage */
+    persist() {
+      const snapshot: StoredCartItem[] = this.items.map((item) => ({
+        id: item.product.id,
+        quantity: item.quantity,
+      }))
+      writeStorage(STORAGE_KEYS.cart, snapshot)
     },
 
-    /** 把某件商品数量设置为指定值（最小 1） */
+    /** 加入购物车；已存在则累加 */
+    add(product: ProductItem, quantity = 1) {
+      const delta = normalizeQuantity(quantity)
+      const existing = this.items.find((item) => item.product.id === product.id)
+      if (existing) {
+        existing.quantity = normalizeQuantity(existing.quantity + delta)
+      } else {
+        this.items.push({ product, quantity: delta })
+      }
+      this.persist()
+    },
+
+    /** 把某件商品数量设置为指定值；<=0 视为移除 */
     setQuantity(productId: string, quantity: number) {
       const target = this.items.find((item) => item.product.id === productId)
       if (!target) return
       if (quantity <= 0) {
         this.remove(productId)
-      } else {
-        target.quantity = quantity
+        return
       }
+      target.quantity = normalizeQuantity(quantity)
+      this.persist()
     },
 
-    /** +1 */
     increment(productId: string) {
       const target = this.items.find((item) => item.product.id === productId)
-      if (target) target.quantity += 1
+      if (!target) return
+      target.quantity = normalizeQuantity(target.quantity + 1)
+      this.persist()
     },
 
-    /** -1，减到 0 自动移除 */
     decrement(productId: string) {
       const target = this.items.find((item) => item.product.id === productId)
       if (!target) return
-      target.quantity -= 1
-      if (target.quantity <= 0) {
-        this.items = this.items.filter((item) => item.product.id !== productId)
+      if (target.quantity <= 1) {
+        this.remove(productId)
+        return
       }
+      target.quantity -= 1
+      this.persist()
     },
 
-    /** 移除某件商品 */
     remove(productId: string) {
       this.items = this.items.filter((item) => item.product.id !== productId)
+      this.persist()
     },
 
-    /** 清空 */
     clear() {
       this.items = []
+      this.persist()
+    },
+
+    openDrawer() {
+      this.drawerOpen = true
+    },
+
+    closeDrawer() {
+      this.drawerOpen = false
+    },
+
+    toggleDrawer() {
+      this.drawerOpen = !this.drawerOpen
     },
   },
 })

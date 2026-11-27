@@ -1,22 +1,25 @@
 /* 商城筛选、排序、视图切换的唯一状态源，StoreView 只负责组装和渲染 */
 
 import { computed, ref } from 'vue'
-import {
-  products,
-  promoTiles,
-  type ProductFilter,
-  type ProductItem,
-  type PromoTile,
-} from '@/data/products'
+import { getProducts, getPromoTiles } from '@/services/catalog'
+import type {
+  AvailabilityFilter,
+  CatalogEntry,
+  PriceBand,
+  ProductFilter,
+  ProductItem,
+  SortKey,
+  ViewMode,
+} from '@/types/catalog'
 
-export type AvailabilityFilter = 'all' | 'in-stock' | 'limited'
-export type PriceBand = 'all' | 'under-500' | '500-1000' | 'over-1000'
-export type SortKey = 'recommended' | 'price-asc' | 'price-desc' | 'popular'
-export type ViewMode = 'grid' | 'list'
-
-export type CatalogEntry =
-  | { kind: 'product'; product: ProductItem }
-  | { kind: 'promo'; promo: PromoTile }
+/** 兼容旧的类型引用路径；新代码请直接从 @/types/catalog 引入 */
+export type {
+  AvailabilityFilter,
+  CatalogEntry,
+  PriceBand,
+  SortKey,
+  ViewMode,
+} from '@/types/catalog'
 
 const priceMatchers: Record<Exclude<PriceBand, 'all'>, (price: number) => boolean> = {
   'under-500': (price) => price < 500,
@@ -48,8 +51,9 @@ export function useProductCatalog() {
       priceBand.value !== 'all',
   )
 
-  const visibleProducts = computed(() => {
-    const filtered = products.filter((product) => {
+  /** 当前筛选后的商品（不含促销位） */
+  const visibleProducts = computed<ProductItem[]>(() => {
+    const filtered = getProducts().filter((product) => {
       if (category.value !== '全部' && product.category !== category.value) return false
       if (availability.value === 'limited' && product.badge !== 'limited') return false
       if (availability.value === 'in-stock' && product.badge === 'limited') return false
@@ -62,21 +66,23 @@ export function useProductCatalog() {
 
   const count = computed(() => visibleProducts.value.length)
 
+  /** 网格视图下把促销位混入；筛选或列表视图时不展示 */
   const entries = computed<CatalogEntry[]>(() => {
-    const entries: CatalogEntry[] = visibleProducts.value.map((product) => ({
+    const productEntries: CatalogEntry[] = visibleProducts.value.map((product) => ({
       kind: 'product',
       product,
     }))
 
     const showsPromos = view.value === 'grid' && !hasActiveFilters.value
-    if (!showsPromos) return entries
+    if (!showsPromos) return productEntries
 
+    const promos = getPromoTiles()
     const mixed: CatalogEntry[] = []
     let promoIndex = 0
 
-    entries.forEach((entry, index) => {
-      if (PROMO_SLOTS.includes(index) && promoIndex < promoTiles.length) {
-        mixed.push({ kind: 'promo', promo: promoTiles[promoIndex] })
+    productEntries.forEach((entry, index) => {
+      if (PROMO_SLOTS.includes(index) && promoIndex < promos.length) {
+        mixed.push({ kind: 'promo', promo: promos[promoIndex] })
         promoIndex += 1
       }
       mixed.push(entry)

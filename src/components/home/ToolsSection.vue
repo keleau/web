@@ -3,7 +3,11 @@ import type { Component } from 'vue'
 import { ArrowRight, Camera, MagicStick, User, UserFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import SmartImage from '@/components/common/SmartImage.vue'
-import { features, type FeatureIcon } from '@/data/home'
+import SectionHead from '@/components/common/SectionHead.vue'
+import { getFeatures } from '@/services/content'
+import type { FeatureIcon } from '@/types/content'
+
+const features = getFeatures()
 
 const iconMap: Record<FeatureIcon, Component> = {
   bust: User,
@@ -19,15 +23,11 @@ function openFeature(title: string) {
 
 <template>
   <section id="features" class="page-section tools" aria-label="生产工具">
-    <div class="section-head">
-      <div class="section-head__title">
-        <span class="kicker">03 — tools</span>
-        <h2>四种建模方式</h2>
-      </div>
-      <p class="section-head__note">
-        照片、扫描件或顶点色模型，都能进入同一条产线。选一个最接近你手头素材的起点。
-      </p>
-    </div>
+    <SectionHead
+      kicker="03 — tools"
+      title="四种建模方式"
+      note="照片、扫描件或顶点色模型，都能进入同一条产线。选一个最接近你手头素材的起点。"
+    />
 
     <ul class="tools__list">
       <li v-for="(item, index) in features" :key="item.id">

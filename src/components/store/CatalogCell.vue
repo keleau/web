@@ -2,8 +2,8 @@
 import { computed } from 'vue'
 import ProductTile from '@/components/store/ProductTile.vue'
 import PromoTile from '@/components/store/PromoTile.vue'
-import type { CatalogEntry } from '@/composables/useProductCatalog'
-import type { ProductItem, PromoTile as PromoTileData } from '@/data/products'
+import type { CatalogEntry } from '@/types/catalog'
+import type { ProductItem, PromoTile as PromoTileData } from '@/types/catalog'
 
 const props = defineProps<{
   entry: CatalogEntry

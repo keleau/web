@@ -3,7 +3,8 @@ import { ArrowRight } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { RouterLink } from 'vue-router'
 import CommunityGallery from '@/components/community/CommunityGallery.vue'
-import type { CommunityItem } from '@/data/community'
+import SectionHead from '@/components/common/SectionHead.vue'
+import type { CommunityItem } from '@/types/community'
 
 function startCreating() {
   ElMessage.success('演示入口：上传一张照片，即可开始生成专属手办')
@@ -16,21 +17,18 @@ function openItem(item: CommunityItem) {
 
 <template>
   <section id="community" class="page-section home-community" aria-label="社区聚焦">
-    <div class="section-head">
-      <div class="section-head__title">
-        <span class="kicker">04 — community</span>
-        <div class="home-community__title-row">
-          <h2>社区聚焦</h2>
-          <button class="home-community__cta" type="button" @click="startCreating">
-            立即制作
-            <el-icon :size="12"><ArrowRight /></el-icon>
-          </button>
-        </div>
-      </div>
-      <p class="section-head__note">
-        真实的照片、真实的打印件。看看别人把谁做成了桌上的那一件，再决定自己的第一件做什么。
-      </p>
-    </div>
+    <SectionHead
+      kicker="04 — community"
+      title="社区聚焦"
+      note="真实的照片、真实的打印件。看看别人把谁做成了桌上的那一件，再决定自己的第一件做什么。"
+    >
+      <template #actions>
+        <button class="home-community__cta" type="button" @click="startCreating">
+          立即制作
+          <el-icon :size="12"><ArrowRight /></el-icon>
+        </button>
+      </template>
+    </SectionHead>
 
     <CommunityGallery :limit="4" :show-tabs="false" @select="openItem" />
 

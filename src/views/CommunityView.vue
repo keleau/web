@@ -4,7 +4,7 @@ import { ElMessage } from 'element-plus'
 import { RouterLink } from 'vue-router'
 import PageIntro from '@/components/common/PageIntro.vue'
 import CommunityGallery from '@/components/community/CommunityGallery.vue'
-import type { CommunityItem } from '@/data/community'
+import type { CommunityItem } from '@/types/community'
 
 function openItem(item: CommunityItem) {
   ElMessage.info(`正在打开「${item.title}」的创作详情（演示）`)

@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { ShoppingCart } from '@element-plus/icons-vue'
 import SmartImage from '@/components/common/SmartImage.vue'
-import type { ProductItem } from '@/data/products'
+import type { ProductItem } from '@/types/catalog'
 import { formatPrice } from '@/utils/format'
 
 const props = defineProps<{

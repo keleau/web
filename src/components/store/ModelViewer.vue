@@ -15,11 +15,36 @@
  *   3. 页面不可见 / 元素移出视口时停掉渲染循环，省 GPU
  *   4. 卸载时逐项 dispose，避免显存泄漏
  */
-import { onMounted, ref } from 'vue'
-import * as THREE from 'three'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { ExtrudeGeometry, Group, IcosahedronGeometry, Mesh, MeshPhysicalMaterial, Shape } from 'three'
+import type { Object3D } from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 import ThreeStage from '@/components/common/ThreeStage.vue'
+
+/**
+ * GLB 二进制缓存放在模块级：同一 URL 在多个页面/组件实例间只下载一次。
+ * 同时按「条数 + 总字节」双重上限淘汰，避免缓存把显存/内存吃满。
+ */
+const bufferCache = new Map<string, ArrayBuffer>()
+const CACHE_LIMIT = 3
+const CACHE_MAX_BYTES = 96 * 1024 * 1024
+
+function cacheModel(url: string, buffer: ArrayBuffer) {
+  bufferCache.delete(url)
+  bufferCache.set(url, buffer)
+
+  let total = 0
+  for (const value of bufferCache.values()) total += value.byteLength
+
+  while (bufferCache.size > CACHE_LIMIT || total > CACHE_MAX_BYTES) {
+    const oldestKey = bufferCache.keys().next().value
+    if (!oldestKey) break
+    const oldest = bufferCache.get(oldestKey)
+    bufferCache.delete(oldestKey)
+    total -= oldest?.byteLength ?? 0
+  }
+}
 
 const props = withDefaults(
   defineProps<{
@@ -45,12 +70,11 @@ const phase = ref<Phase>('loading')
 const progress = ref(0)
 const errorText = ref('')
 
-/** GLB 二进制缓存：同 URL 只下载一次 */
-const bufferCache = new Map<string, ArrayBuffer>()
-const CACHE_LIMIT = 8
-
 /** GLB 魔数 0x46546C67 = "glTF" */
 const GLB_MAGIC = 0x46546c67
+
+let disposed = false
+let loadToken = 0
 
 /* ---------------- 模型来源 ---------------- */
 
@@ -62,6 +86,9 @@ function isGLB(buffer: ArrayBuffer) {
 async function fetchModel(url: string): Promise<ArrayBuffer> {
   const cached = bufferCache.get(url)
   if (cached) {
+    // 命中后刷新 LRU 顺序
+    bufferCache.delete(url)
+    bufferCache.set(url, cached)
     progress.value = 0.85
     return cached
   }
@@ -94,22 +121,17 @@ async function fetchModel(url: string): Promise<ArrayBuffer> {
     buffer = merged.buffer
   }
 
-  if (bufferCache.size >= CACHE_LIMIT) {
-    const oldest = bufferCache.keys().next().value
-    if (oldest) bufferCache.delete(oldest)
-  }
-  bufferCache.set(url, buffer)
+  cacheModel(url, buffer)
   progress.value = 0.85
   return buffer
 }
 
-async function parseGLB(buffer: ArrayBuffer): Promise<THREE.Object3D> {
+async function parseGLB(buffer: ArrayBuffer): Promise<Object3D> {
   if (!isGLB(buffer)) throw new Error('仅支持 .glb（GLTF Binary）模型')
 
   const loader = new GLTFLoader()
   const draco = new DRACOLoader()
-  // 只有遇到 Draco 压缩的网格时才会真正去拉解码器
-  draco.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/')
+  // three 的 DRACOLoader 已内置随包发布的解码器地址，无需外网 / 手动配置
   loader.setDRACOLoader(draco)
 
   const blobUrl = URL.createObjectURL(new Blob([buffer], { type: 'model/gltf-binary' }))
@@ -128,7 +150,7 @@ async function parseGLB(buffer: ArrayBuffer): Promise<THREE.Object3D> {
 /* ---------------- 占位浮雕模型（没有 glb 时兜底） ---------------- */
 
 function roundedRect(width: number, height: number, radius: number) {
-  const shape = new THREE.Shape()
+  const shape = new Shape()
   const x = -width / 2
   const y = -height / 2
   const w = width
@@ -146,7 +168,7 @@ function roundedRect(width: number, height: number, radius: number) {
   return shape
 }
 
-function createPlaceholder(variant: string): THREE.Object3D {
+function createPlaceholder(variant: string): Object3D {
   const palettes = [
     { base: 0xe8d7bd, relief: 0xb98a5a, accent: 0x0f7bd1 },
     { base: 0xdccbb2, relief: 0x8d6b4a, accent: 0xdcae66 },
@@ -158,9 +180,9 @@ function createPlaceholder(variant: string): THREE.Object3D {
   }
   const palette = palettes[hash % palettes.length]
 
-  const group = new THREE.Group()
+  const group = new Group()
 
-  const plateGeometry = new THREE.ExtrudeGeometry(roundedRect(3.1, 4.05, 0.34), {
+  const plateGeometry = new ExtrudeGeometry(roundedRect(3.1, 4.05, 0.34), {
     depth: 0.2,
     bevelEnabled: true,
     bevelThickness: 0.07,
@@ -169,9 +191,9 @@ function createPlaceholder(variant: string): THREE.Object3D {
     curveSegments: 14,
   })
   plateGeometry.center()
-  const plate = new THREE.Mesh(
+  const plate = new Mesh(
     plateGeometry,
-    new THREE.MeshPhysicalMaterial({
+    new MeshPhysicalMaterial({
       color: palette.base,
       roughness: 0.42,
       metalness: 0.14,
@@ -181,7 +203,7 @@ function createPlaceholder(variant: string): THREE.Object3D {
   )
   group.add(plate)
 
-  const reliefGeometry = new THREE.ExtrudeGeometry(roundedRect(2.3, 3.1, 0.24), {
+  const reliefGeometry = new ExtrudeGeometry(roundedRect(2.3, 3.1, 0.24), {
     depth: 0.1,
     bevelEnabled: true,
     bevelThickness: 0.05,
@@ -190,9 +212,9 @@ function createPlaceholder(variant: string): THREE.Object3D {
     curveSegments: 12,
   })
   reliefGeometry.center()
-  const relief = new THREE.Mesh(
+  const relief = new Mesh(
     reliefGeometry,
-    new THREE.MeshPhysicalMaterial({
+    new MeshPhysicalMaterial({
       color: palette.relief,
       roughness: 0.3,
       metalness: 0.55,
@@ -201,9 +223,9 @@ function createPlaceholder(variant: string): THREE.Object3D {
   relief.position.z = 0.15
   group.add(relief)
 
-  const gem = new THREE.Mesh(
-    new THREE.IcosahedronGeometry(0.42, 2),
-    new THREE.MeshPhysicalMaterial({
+  const gem = new Mesh(
+    new IcosahedronGeometry(0.42, 2),
+    new MeshPhysicalMaterial({
       color: palette.accent,
       roughness: 0.18,
       metalness: 0.9,
@@ -220,26 +242,37 @@ function createPlaceholder(variant: string): THREE.Object3D {
 
 /* ---------------- 加载流程 ---------------- */
 
-function mountObject(object: THREE.Object3D) {
-  if (!stage.value?.setObject(object)) return
+function mountObject(object: Object3D) {
+  if (disposed || !stage.value?.setObject(object)) return
   phase.value = 'ready'
   progress.value = 1
   emit('ready')
 }
 
 function handleStageError(message: string) {
+  if (disposed) return
   phase.value = 'error'
   errorText.value = message
   emit('error', message)
 }
 
 async function boot() {
-  if (phase.value === 'error') return
+  const token = ++loadToken
+  stage.value?.clearObject()
+  phase.value = 'loading'
+  progress.value = 0
+  errorText.value = ''
 
   try {
-    const object = props.src ? await parseGLB(await fetchModel(props.src)) : createPlaceholder(props.variant)
+    const object = props.src
+      ? await parseGLB(await fetchModel(props.src))
+      : createPlaceholder(props.variant)
+
+    // 组件已卸载或已切换到另一个模型：丢弃本次结果
+    if (disposed || token !== loadToken) return
     mountObject(object)
   } catch (error) {
+    if (disposed || token !== loadToken) return
     const message = error instanceof Error ? error.message : '模型加载失败'
     phase.value = 'error'
     errorText.value = message
@@ -249,6 +282,19 @@ async function boot() {
 
 onMounted(() => {
   void boot()
+})
+
+watch(
+  () => [props.src, props.variant],
+  () => {
+    void boot()
+  },
+)
+
+onBeforeUnmount(() => {
+  disposed = true
+  loadToken += 1
+  stage.value?.clearObject()
 })
 </script>
 

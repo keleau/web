@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import CatalogCell from '@/components/store/CatalogCell.vue'
-import type { CatalogEntry } from '@/composables/useProductCatalog'
-import type { ProductItem, PromoTile } from '@/data/products'
+import type { CatalogEntry } from '@/types/catalog'
+import type { ProductItem, PromoTile } from '@/types/catalog'
 
 defineProps<{
   entries: CatalogEntry[]

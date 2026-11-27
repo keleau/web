@@ -1,11 +1,5 @@
 /* 顶部导航配置：页面跳转与锚点跳转写在一处，避免散落在模板里 */
-
-export interface NavItem {
-  label: string
-  to?: string
-  anchor?: string
-  demo?: boolean
-}
+import type { NavItem } from '@/types/content'
 
 export const primaryNav: NavItem[] = [
   { label: '首页', to: '/' },

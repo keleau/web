@@ -6,8 +6,22 @@
  * 尺寸自适应 / 可见性调度 / 资源释放。
  * 业务组件负责准备 Object3D，通过 setObject() 交给舞台渲染。
  */
-import { onBeforeUnmount, onMounted, ref } from 'vue'
-import * as THREE from 'three'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import {
+  ACESFilmicToneMapping,
+  Box3,
+  DirectionalLight,
+  Material,
+  Mesh,
+  Object3D,
+  PerspectiveCamera,
+  PMREMGenerator,
+  Scene,
+  SRGBColorSpace,
+  Texture,
+  Vector3,
+  WebGLRenderer,
+} from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 
@@ -29,32 +43,34 @@ const emit = defineEmits<{
 
 const host = ref<HTMLDivElement | null>(null)
 
-let renderer: THREE.WebGLRenderer | null = null
-let scene: THREE.Scene | null = null
-let camera: THREE.PerspectiveCamera | null = null
+let renderer: WebGLRenderer | null = null
+let scene: Scene | null = null
+let camera: PerspectiveCamera | null = null
 let controls: OrbitControls | null = null
-let envTexture: THREE.Texture | null = null
-let currentObject: THREE.Object3D | null = null
+let envTexture: Texture | null = null
+let currentObject: Object3D | null = null
 let resizeObserver: ResizeObserver | null = null
 let intersectionObserver: IntersectionObserver | null = null
 let playing = false
+let onScreen = true
+let disposed = false
 
 /* ---------------- 资源释放 ---------------- */
 
-function disposeMaterial(material: THREE.Material) {
+function disposeMaterial(material: Material) {
   for (const value of Object.values(material)) {
-    if (value && (value as THREE.Texture).isTexture) {
-      ;(value as THREE.Texture).dispose()
+    if (value && (value as Texture).isTexture) {
+      ;(value as Texture).dispose()
     }
   }
   material.dispose()
 }
 
-function disposeObject(object: THREE.Object3D) {
+function disposeObject(object: Object3D) {
   object.traverse((child) => {
-    const mesh = child as THREE.Mesh
+    const mesh = child as Mesh
     if (mesh.geometry) mesh.geometry.dispose()
-    const material = mesh.material as THREE.Material | THREE.Material[] | undefined
+    const material = mesh.material as Material | Material[] | undefined
     if (Array.isArray(material)) material.forEach(disposeMaterial)
     else if (material) disposeMaterial(material)
   })
@@ -62,11 +78,11 @@ function disposeObject(object: THREE.Object3D) {
 
 /* ---------------- 相机适配 ---------------- */
 
-function fitCamera(object: THREE.Object3D) {
+function fitCamera(object: Object3D) {
   if (!camera || !controls) return
-  const box = new THREE.Box3().setFromObject(object)
-  const size = box.getSize(new THREE.Vector3())
-  const center = box.getCenter(new THREE.Vector3())
+  const box = new Box3().setFromObject(object)
+  const size = box.getSize(new Vector3())
+  const center = box.getCenter(new Vector3())
   const maxDim = Math.max(size.x, size.y, size.z) || 1
   const fov = (camera.fov * Math.PI) / 180
   const distance = ((maxDim / 2) / Math.tan(fov / 2)) * props.fitPadding
@@ -85,6 +101,7 @@ function fitCamera(object: THREE.Object3D) {
 /* ---------------- 渲染调度 ---------------- */
 
 function resize() {
+  if (disposed) return
   const el = host.value
   if (!el || !renderer || !camera) return
   const width = el.clientWidth || 1
@@ -95,7 +112,7 @@ function resize() {
 }
 
 function startLoop() {
-  if (!renderer || playing) return
+  if (!renderer || playing || disposed) return
   playing = true
   renderer.setAnimationLoop(() => {
     controls?.update()
@@ -109,16 +126,22 @@ function stopLoop() {
   renderer.setAnimationLoop(null)
 }
 
+/** 只有「在视口内 + 页面可见」时才渲染，避免两个暂停信号互相覆盖 */
+function syncLoop() {
+  if (disposed || !renderer) return
+  if (onScreen && !document.hidden) startLoop()
+  else stopLoop()
+}
+
 function onVisibilityChange() {
-  if (document.hidden) stopLoop()
-  else startLoop()
+  syncLoop()
 }
 
 /* ---------------- 对外 API ---------------- */
 
 /** 挂载（替换）要展示的模型；返回是否挂载成功 */
-function setObject(object: THREE.Object3D): boolean {
-  if (!scene) return false
+function setObject(object: Object3D): boolean {
+  if (!scene || disposed) return false
   if (currentObject) {
     scene.remove(currentObject)
     disposeObject(currentObject)
@@ -139,6 +162,20 @@ function clearObject() {
 
 defineExpose({ setObject, clearObject })
 
+watch(
+  () => props.exposure,
+  (value) => {
+    if (renderer) renderer.toneMappingExposure = value
+  },
+)
+
+watch(
+  () => props.fitPadding,
+  () => {
+    if (currentObject) fitCamera(currentObject)
+  },
+)
+
 /* ---------------- 生命周期 ---------------- */
 
 function setup(): boolean {
@@ -146,7 +183,7 @@ function setup(): boolean {
   if (!el) return false
 
   try {
-    renderer = new THREE.WebGLRenderer({
+    renderer = new WebGLRenderer({
       antialias: true,
       alpha: true,
       powerPreference: 'high-performance',
@@ -156,28 +193,28 @@ function setup(): boolean {
   }
 
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-  renderer.outputColorSpace = THREE.SRGBColorSpace
-  renderer.toneMapping = THREE.ACESFilmicToneMapping
+  renderer.outputColorSpace = SRGBColorSpace
+  renderer.toneMapping = ACESFilmicToneMapping
   renderer.toneMappingExposure = props.exposure
   renderer.domElement.style.display = 'block'
   renderer.domElement.style.width = '100%'
   renderer.domElement.style.height = '100%'
   el.appendChild(renderer.domElement)
 
-  scene = new THREE.Scene()
+  scene = new Scene()
 
   // 用 RoomEnvironment 生成 IBL，材质质感接近棚拍效果
-  const pmrem = new THREE.PMREMGenerator(renderer)
+  const pmrem = new PMREMGenerator(renderer)
   envTexture = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
   scene.environment = envTexture
   pmrem.dispose()
 
   // 补一盏主光，压出金属高光
-  const keyLight = new THREE.DirectionalLight(0xffffff, 1.6)
+  const keyLight = new DirectionalLight(0xffffff, 1.6)
   keyLight.position.set(4, 6, 6)
   scene.add(keyLight)
 
-  camera = new THREE.PerspectiveCamera(props.fov, 1, 0.1, 100)
+  camera = new PerspectiveCamera(props.fov, 1, 0.1, 100)
   controls = new OrbitControls(camera, renderer.domElement)
   controls.enableDamping = true
   controls.dampingFactor = 0.08
@@ -196,7 +233,7 @@ onMounted(() => {
     return
   }
 
-  startLoop()
+  syncLoop()
 
   if (el) {
     resizeObserver = new ResizeObserver(() => resize())
@@ -206,8 +243,8 @@ onMounted(() => {
     intersectionObserver = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          if (entry.isIntersecting) startLoop()
-          else stopLoop()
+          onScreen = entry.isIntersecting
+          syncLoop()
         })
       },
       { threshold: 0.05 },
@@ -219,6 +256,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  disposed = true
   document.removeEventListener('visibilitychange', onVisibilityChange)
   resizeObserver?.disconnect()
   resizeObserver = null

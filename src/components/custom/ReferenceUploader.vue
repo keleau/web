@@ -1,58 +1,115 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { Close, RefreshRight } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import type { ReferenceFile, ReferenceUploader as UploaderFn } from '@/types/upload'
 
-/** 参考图上传组件：本地预览 + 可插拔的后端上传，通过 v-model 输出 File[] */
-type UploadStatus = 'local' | 'uploading' | 'done' | 'error'
-
-interface UploadItem {
-  file: File
-  previewUrl: string
-  status: UploadStatus
-  progress: number
-  remoteUrl?: string
-}
-
-type Uploader = (
-  file: File,
-  onProgress: (percent: number) => void,
-) => Promise<string | { url: string }>
-
+/**
+ * 参考图上传组件
+ * - v-model 输出 ReferenceFile[]（含状态 / 进度 / 后端文件 ID）
+ * - 上传函数由外部注入，组件不关心具体后端
+ * - 本地 ObjectURL 的生命周期由本组件统一回收
+ */
 const props = withDefaults(
   defineProps<{
+    /** 受控列表；外部只需在初始化或重置时传入 */
+    modelValue?: ReferenceFile[]
     /** 最多可选图片数量 */
     max?: number
     /** 单张图片大小上限（MB） */
     maxSize?: number
     /** 后端上传函数，不传则只保留本地预览 */
-    uploader?: Uploader
+    uploader?: UploaderFn
   }>(),
   {
+    modelValue: () => [],
     max: 6,
     maxSize: 10,
   },
 )
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', files: File[]): void
-  (e: 'change', files: File[]): void
+  (e: 'update:modelValue', files: ReferenceFile[]): void
+  (e: 'change', files: ReferenceFile[]): void
 }>()
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp']
 
-const items = ref<UploadItem[]>([])
+const items = ref<ReferenceFile[]>([])
 const inputRef = ref<HTMLInputElement | null>(null)
 const isDragging = ref(false)
 const dragDepth = ref(0)
 
+/** 上一次由本组件 emit 出去的数组，避免回灌造成循环 */
+let lastEmitted: ReferenceFile[] | null = null
+
 const isFull = computed(() => items.value.length >= props.max)
 
-function emitFiles() {
-  const files = items.value.map((item) => item.file)
-  emit('update:modelValue', files)
-  emit('change', files)
+function createUid() {
+  return `ref-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 }
+
+function isAllowedFile(file: File) {
+  if (file.type) return ALLOWED_TYPES.includes(file.type)
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
+  return ALLOWED_EXTENSIONS.includes(ext)
+}
+
+function emitFiles() {
+  const snapshot = [...items.value]
+  lastEmitted = snapshot
+  emit('update:modelValue', snapshot)
+  emit('change', snapshot)
+}
+
+function revokePreview(item: ReferenceFile) {
+  if (item.previewUrl.startsWith('blob:')) URL.revokeObjectURL(item.previewUrl)
+}
+
+/** 父级重置或传入初始列表时同步内部状态 */
+function syncFromModel(next: ReferenceFile[]) {
+  if (next === lastEmitted) return
+
+  if (!next.length) {
+    items.value.forEach(revokePreview)
+    items.value = []
+    return
+  }
+
+  const existingMap = new Map(items.value.map((item) => [item.uid, item]))
+  const result: ReferenceFile[] = []
+  const pendingUploads: ReferenceFile[] = []
+
+  for (const source of next) {
+    const existing = existingMap.get(source.uid)
+    if (existing) {
+      result.push(existing)
+      existingMap.delete(source.uid)
+      continue
+    }
+
+    const entry: ReferenceFile = {
+      uid: source.uid || createUid(),
+      file: source.file,
+      previewUrl: source.previewUrl || URL.createObjectURL(source.file),
+      status: source.status ?? 'local',
+      progress: source.progress ?? 0,
+      referenceId: source.referenceId,
+      remoteUrl: source.remoteUrl,
+      errorMessage: source.errorMessage,
+    }
+    result.push(entry)
+    if (entry.status === 'local' && props.uploader) pendingUploads.push(entry)
+  }
+
+  // 被父级移除的条目回收本地预览
+  existingMap.forEach(revokePreview)
+  items.value = result
+  pendingUploads.forEach((entry) => void uploadItem(entry))
+}
+
+watch(() => props.modelValue, syncFromModel, { immediate: true })
 
 function openPicker() {
   if (isFull.value) {
@@ -96,7 +153,7 @@ function addFiles(input: FileList | File[]) {
 
   const accepted: File[] = []
   for (const file of incoming) {
-    if (!ALLOWED_TYPES.includes(file.type)) {
+    if (!isAllowedFile(file)) {
       ElMessage.warning(`「${file.name}」不是支持的图片格式`)
       continue
     }
@@ -111,50 +168,82 @@ function addFiles(input: FileList | File[]) {
     accepted.push(file)
   }
 
-  accepted.forEach((file) => {
-    items.value.push({
+  for (const file of accepted) {
+    const item: ReferenceFile = {
+      uid: createUid(),
       file,
       previewUrl: URL.createObjectURL(file),
       status: 'local',
       progress: 0,
-    })
-    const item = items.value[items.value.length - 1]
+    }
+    items.value.push(item)
     if (props.uploader) void uploadItem(item)
-  })
+  }
 
   if (accepted.length) emitFiles()
 }
 
-async function uploadItem(item: UploadItem) {
+async function uploadItem(item: ReferenceFile) {
   const uploader = props.uploader
-  if (!uploader) return
+  if (!uploader || item.status === 'uploading') return
 
   item.status = 'uploading'
   item.progress = 0
+  item.errorMessage = ''
 
   try {
     const result = await uploader(item.file, (percent) => {
+      if (!items.value.includes(item)) return
       item.progress = Math.min(100, Math.max(0, Math.round(percent)))
     })
-    item.remoteUrl = typeof result === 'string' ? result : result.url
+
+    // 上传期间被移除：丢弃结果，避免状态写回已删除条目
+    if (!items.value.includes(item)) return
+
+    item.referenceId = result.id
+    item.remoteUrl = result.url
     item.status = 'done'
     item.progress = 100
-  } catch {
+    emitFiles()
+  } catch (error) {
+    if (!items.value.includes(item)) return
     item.status = 'error'
+    item.progress = 0
+    item.errorMessage = error instanceof Error ? error.message : '上传失败'
+    emitFiles()
     ElMessage.error(`「${item.file.name}」上传失败，可点击重试`)
   }
 }
 
-function removeItem(item: UploadItem) {
-  URL.revokeObjectURL(item.previewUrl)
+function removeItem(item: ReferenceFile) {
+  if (item.status === 'uploading') {
+    // 先移出列表，上传回调会因 items 不包含该条目而丢弃结果
+    items.value = items.value.filter((current) => current !== item)
+    revokePreview(item)
+    emitFiles()
+    return
+  }
+  revokePreview(item)
   items.value = items.value.filter((current) => current !== item)
   emitFiles()
 }
 
 function clearAll() {
-  items.value.forEach((item) => URL.revokeObjectURL(item.previewUrl))
+  items.value.forEach(revokePreview)
   items.value = []
   emitFiles()
+}
+
+/** 供父级在订单完成后重置 */
+function reset() {
+  clearAll()
+}
+
+/** 重试所有失败条目 */
+function retryFailed() {
+  items.value
+    .filter((item) => item.status === 'error')
+    .forEach((item) => void uploadItem(item))
 }
 
 function formatSize(bytes: number) {
@@ -162,7 +251,7 @@ function formatSize(bytes: number) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
-function statusText(item: UploadItem) {
+function statusText(item: ReferenceFile) {
   if (item.status === 'uploading') return `${item.progress}%`
   if (item.status === 'done') return '已上传'
   if (item.status === 'error') return '上传失败'
@@ -170,10 +259,10 @@ function statusText(item: UploadItem) {
 }
 
 onBeforeUnmount(() => {
-  items.value.forEach((item) => URL.revokeObjectURL(item.previewUrl))
+  items.value.forEach(revokePreview)
 })
 
-defineExpose({ reset: clearAll, openPicker })
+defineExpose({ reset, openPicker, retryFailed })
 </script>
 
 <template>
@@ -216,7 +305,7 @@ defineExpose({ reset: clearAll, openPicker })
 
       <template v-else>
         <ul class="reference-uploader__grid">
-          <li v-for="item in items" :key="item.previewUrl" class="reference-item">
+          <li v-for="item in items" :key="item.uid" class="reference-item">
             <div class="reference-item__media">
               <img :src="item.previewUrl" :alt="item.file.name" />
               <span class="reference-item__badge" :class="`is-${item.status}`">

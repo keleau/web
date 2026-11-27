@@ -1,101 +1,125 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { ArrowRight, Check, Picture } from '@element-plus/icons-vue'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { useRoute } from 'vue-router'
 import ReferenceUploader from '@/components/custom/ReferenceUploader.vue'
 import ReliefPreview from '@/components/custom/ReliefPreview.vue'
 import { submitCustomOrder, uploadReferenceImage } from '@/api/custom'
-import { products } from '@/data/products'
+import { useModelingTask } from '@/composables/useModelingTask'
+import { getProductById } from '@/services/catalog'
+import type { ReferenceFile } from '@/types/upload'
+import { readStorage, STORAGE_KEYS, writeStorage } from '@/utils/storage'
+
+const ModelViewer = defineAsyncComponent(() => import('@/components/store/ModelViewer.vue'))
 
 const GUIDE_PHOTO = '/images/custom/reference-photo.jpg'
 const GUIDE_MODEL = '/images/custom/reference-model.jpg'
 
 const route = useRoute()
 
-const files = ref<File[]>([])
+/** 上传组件输出的参考图（含上传状态与后端文件 ID） */
+const references = ref<ReferenceFile[]>([])
+/** 首张参考图的本地预览（独立于上传组件，避免组件收回 ObjectURL 后预览失效） */
 const previewSrc = ref('')
-const modelSrc = ref('')
-const building = ref(false)
-const modelingProgress = ref(0)
 const uploaderRef = ref<InstanceType<typeof ReferenceUploader> | null>(null)
-const hasUpload = computed(() => files.value.length > 0)
 
-let buildToken = 0
-let buildTimer: number | undefined
-
-function stopBuildTimer() {
-  if (buildTimer !== undefined) {
-    window.clearInterval(buildTimer)
-    buildTimer = undefined
-  }
-}
-
-/** 模拟建模过程；后端建模接口就绪后，把这里的计时替换成真实请求并同步进度即可 */
-async function buildModel(source: string) {
-  const token = Number(++buildToken)
-  stopBuildTimer()
-
-  modelSrc.value = ''
-  building.value = true
-  modelingProgress.value = 0
-
-  buildTimer = window.setInterval(() => {
-    if (modelingProgress.value >= 90) return
-    modelingProgress.value = Math.min(90, modelingProgress.value + Math.round(2 + Math.random() * 7))
-  }, 160)
-
-  await new Promise((resolve) => setTimeout(resolve, 2400))
-  if (token !== buildToken) return
-
-  stopBuildTimer()
-  modelingProgress.value = 100
-  modelSrc.value = source
-  building.value = false
-}
-
-// 进入页面先弹一次上传提示
-const guideVisible = ref(true)
-
-function startUpload() {
-  guideVisible.value = false
-  void nextTick(() => uploaderRef.value?.openPicker())
-}
+const hasUpload = computed(() => references.value.length > 0)
+const readyReferences = computed(() =>
+  references.value.filter((item) => item.status === 'done' && item.referenceId),
+)
+const uploadingCount = computed(
+  () => references.value.filter((item) => item.status === 'uploading').length,
+)
+const failedCount = computed(
+  () => references.value.filter((item) => item.status === 'error').length,
+)
+const canSubmit = computed(
+  () =>
+    readyReferences.value.length > 0 &&
+    uploadingCount.value === 0 &&
+    failedCount.value === 0,
+)
 
 const product = computed(() => {
   const id = route.query.product
-  if (typeof id !== 'string') return null
-  return products.find((item) => item.id === id) ?? null
+  return getProductById(typeof id === 'string' ? id : null)
 })
 
-// 第一张参考图进入建模流程，完成后在预览区渲染 3D 模型
-watch(files, (next) => {
-  if (previewSrc.value.startsWith('blob:')) URL.revokeObjectURL(previewSrc.value)
-  previewSrc.value = next[0] ? URL.createObjectURL(next[0]) : ''
+/* ---------------- 建模任务 ---------------- */
 
-  if (!previewSrc.value) {
-    buildToken += 1
-    stopBuildTimer()
-    building.value = false
-    modelingProgress.value = 0
-    modelSrc.value = ''
+const modeling = useModelingTask({
+  interval: 1100,
+  onError: (message) => ElMessage.error(message),
+})
+
+// 解构出 ref：模板里才能自动解包（嵌套在对象里的 ref 不会自动解包）
+const {
+  phase: modelingPhase,
+  progress: modelingProgress,
+  isBusy: modelingBusy,
+  modelUrl: modelingModelUrl,
+  errorMessage: modelingErrorMessage,
+  retry: retryModeling,
+} = modeling
+
+const firstReadyId = computed(() => readyReferences.value[0]?.referenceId ?? '')
+
+// 首张参考图上传完成后自动创建建模任务；移除或上传失败时取消
+watch(firstReadyId, (id) => {
+  if (!id) {
+    modeling.cancel()
     return
   }
-
-  void buildModel(previewSrc.value)
+  void modeling.start({
+    productId: product.value?.id,
+    referenceIds: [id],
+  })
 })
+
+/* ---------------- 预览图 ---------------- */
+
+watch(
+  () => references.value[0]?.uid,
+  () => {
+    if (previewSrc.value.startsWith('blob:')) URL.revokeObjectURL(previewSrc.value)
+    const first = references.value[0]
+    previewSrc.value = first ? URL.createObjectURL(first.file) : ''
+  },
+)
 
 onBeforeUnmount(() => {
-  buildToken += 1
-  stopBuildTimer()
   if (previewSrc.value.startsWith('blob:')) URL.revokeObjectURL(previewSrc.value)
 })
+
+/* ---------------- 上传提示 ---------------- */
+
+const guideVisible = ref(!readStorage<boolean>(STORAGE_KEYS.guideSeen, false))
+
+function markGuideSeen() {
+  writeStorage(STORAGE_KEYS.guideSeen, true)
+}
+
+function dismissGuide() {
+  markGuideSeen()
+  guideVisible.value = false
+}
+
+function startUpload() {
+  dismissGuide()
+  void nextTick(() => uploaderRef.value?.openPicker())
+}
+
+function openGuide() {
+  guideVisible.value = true
+}
 
 /* ---------------- 生成订单 ---------------- */
 
 const dialogVisible = ref(false)
 const submitting = ref(false)
 const orderId = ref('')
+const orderNo = ref('')
 const formRef = ref<FormInstance>()
 const form = reactive({
   name: '',
@@ -118,7 +142,16 @@ function openDialog() {
     ElMessage.warning('请先上传一张参考图')
     return
   }
+  if (uploadingCount.value > 0) {
+    ElMessage.warning('参考图还在上传，请稍候')
+    return
+  }
+  if (failedCount.value > 0) {
+    ElMessage.warning('有参考图上传失败，请重试或移除后再提交')
+    return
+  }
   orderId.value = ''
+  orderNo.value = ''
   dialogVisible.value = true
 }
 
@@ -128,12 +161,17 @@ async function handleSubmit() {
   const valid = await formRef.value.validate().catch(() => false)
   if (!valid) return
 
+  if (!canSubmit.value) {
+    ElMessage.warning('参考图尚未全部上传成功，请稍后再试')
+    return
+  }
+
   submitting.value = true
   try {
     const result = await submitCustomOrder({
       productId: product.value?.id,
       note: form.note.trim() || undefined,
-      files: files.value,
+      referenceIds: readyReferences.value.map((item) => item.referenceId!),
       customer: {
         name: form.name.trim(),
         phone: form.phone.trim(),
@@ -141,6 +179,7 @@ async function handleSubmit() {
       },
     })
     orderId.value = result.orderId
+    orderNo.value = result.orderNo
     ElMessage.success('订单已生成')
   } catch {
     // 请求异常已由 axios 拦截器统一提示
@@ -152,11 +191,13 @@ async function handleSubmit() {
 function handleClosed() {
   if (!orderId.value) return
   orderId.value = ''
+  orderNo.value = ''
   // 表单在订单成功时已被卸载，这里直接重置数据源
   form.name = ''
   form.phone = ''
   form.address = ''
   form.note = ''
+  modeling.cancel()
   uploaderRef.value?.reset()
 }
 </script>
@@ -175,18 +216,25 @@ function handleClosed() {
       <section class="custom-card custom-card--upload">
         <header class="custom-card__head">
           <span>参考图</span>
-          <small>{{ hasUpload ? `已选 ${files.length} 张` : '支持 JPG / PNG / WEBP' }}</small>
+          <div class="custom-card__head-actions">
+            <small>{{ hasUpload ? `已选 ${references.length} 张` : '支持 JPG / PNG / WEBP' }}</small>
+            <button class="custom-card__guide" type="button" @click="openGuide">上传说明</button>
+          </div>
         </header>
 
-        <ReferenceUploader ref="uploaderRef" v-model="files" :uploader="uploadReferenceImage" />
+        <ReferenceUploader
+          ref="uploaderRef"
+          v-model="references"
+          :uploader="uploadReferenceImage"
+        />
 
         <button
           class="btn btn--primary custom-card__cta"
           type="button"
-          :disabled="!hasUpload || building"
+          :disabled="!canSubmit || modelingBusy"
           @click="openDialog"
         >
-          {{ building ? '建模中…' : '生成定制方案' }}
+          {{ modelingBusy ? '建模中…' : uploadingCount > 0 ? '上传中…' : '生成定制方案' }}
           <el-icon :size="14"><ArrowRight /></el-icon>
         </button>
       </section>
@@ -194,14 +242,30 @@ function handleClosed() {
       <section class="custom-card custom-card--preview">
         <header class="custom-card__head">
           <span>作品预览</span>
-          <small>{{ hasUpload ? `参考图 ${files.length} 张` : '待上传' }}</small>
+          <small>{{ hasUpload ? `参考图 ${references.length} 张` : '待上传' }}</small>
         </header>
 
-        <div class="custom-preview" :class="{ 'has-model': !!modelSrc }">
-          <template v-if="modelSrc">
-            <ReliefPreview :src="modelSrc" />
-            <span class="custom-preview__tag">3D 模型 · 拖拽查看</span>
+        <div
+          class="custom-preview"
+          :class="{ 'has-model': !!previewSrc || !!modelingModelUrl }"
+        >
+          <template v-if="modelingPhase === 'failed'">
+            <div class="custom-preview__state is-error">
+              <p>{{ modelingErrorMessage || '建模失败，请稍后重试' }}</p>
+              <button class="custom-preview__retry" type="button" @click="retryModeling">
+                重试建模
+              </button>
+            </div>
           </template>
+
+          <ModelViewer
+            v-else-if="modelingModelUrl"
+            :src="modelingModelUrl"
+            :poster="previewSrc"
+            :variant="product?.id"
+          />
+
+          <ReliefPreview v-else-if="previewSrc" :src="previewSrc" />
 
           <div v-else-if="!hasUpload" class="custom-preview__empty">
             <span class="custom-preview__empty-icon">
@@ -209,6 +273,10 @@ function handleClosed() {
             </span>
             <p>上传照片后替换为你的作品</p>
           </div>
+
+          <span v-if="previewSrc || modelingModelUrl" class="custom-preview__tag">
+            3D 模型 · 拖拽查看
+          </span>
         </div>
 
         <p v-if="product" class="custom-preview__product">
@@ -222,6 +290,7 @@ function handleClosed() {
       width="min(560px, 92vw)"
       align-center
       class="custom-dialog guide-dialog"
+      @closed="markGuideSeen"
     >
       <template #header>
         <div class="custom-dialog__head">
@@ -260,7 +329,7 @@ function handleClosed() {
 
       <template #footer>
         <div class="custom-dialog__footer">
-          <button class="btn btn--ghost" type="button" @click="guideVisible = false">
+          <button class="btn btn--ghost" type="button" @click="dismissGuide">
             知道了
           </button>
           <button class="btn btn--primary" type="button" @click="startUpload">
@@ -290,7 +359,7 @@ function handleClosed() {
         <span class="order-done__icon">
           <el-icon :size="20"><Check /></el-icon>
         </span>
-        <p class="order-done__id">订单号 {{ orderId }}</p>
+        <p class="order-done__id">订单号 {{ orderNo || orderId }}</p>
         <p class="order-done__note">1 个工作日内联系你确认方案与报价。</p>
       </div>
 
@@ -299,7 +368,7 @@ function handleClosed() {
           <img :src="previewSrc" alt="参考图预览" />
           <div class="order-summary__copy">
             <p>{{ product?.title || '自定义 3D 浮雕' }}</p>
-            <span>参考图 {{ files.length }} 张</span>
+            <span>参考图 {{ references.length }} 张</span>
           </div>
         </div>
 
@@ -366,7 +435,13 @@ function handleClosed() {
     </el-dialog>
 
     <Transition name="modeling">
-      <div v-if="building" class="modeling" role="status" aria-live="polite" aria-busy="true">
+      <div
+        v-if="modelingBusy"
+        class="modeling"
+        role="status"
+        aria-live="polite"
+        aria-busy="true"
+      >
         <div class="modeling__panel">
           <span class="modeling__spinner" aria-hidden="true"></span>
           <h2>正在生成 3D 模型</h2>
@@ -455,6 +530,54 @@ function handleClosed() {
   color: var(--text-dim);
   font-size: 10px;
   font-weight: 400;
+}
+
+.custom-card__head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.custom-card__guide {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 10px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 0.2s ease;
+}
+
+.custom-card__guide:hover {
+  color: var(--sand);
+}
+
+.custom-preview__state.is-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 20px;
+  color: #ff9f7a;
+  font-size: 11.5px;
+  line-height: 1.7;
+  text-align: center;
+}
+
+.custom-preview__retry {
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-pill);
+  color: var(--text-secondary);
+  font-size: 11px;
+  transition:
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.custom-preview__retry:hover {
+  border-color: var(--brand-border);
+  color: var(--brand-strong);
 }
 
 .custom-card__cta {

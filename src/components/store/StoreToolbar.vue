@@ -1,17 +1,15 @@
 <script setup lang="ts">
 import { Grid, List } from '@element-plus/icons-vue'
 import TextSelect from '@/components/common/TextSelect.vue'
-import {
-  productCategories,
-  type ProductFilter,
-} from '@/data/products'
-import {
-  type AvailabilityFilter,
-  type PriceBand,
-  type SortKey,
-  type ViewMode,
-} from '@/composables/useProductCatalog'
+import { getProductCategories } from '@/services/catalog'
 import type { SelectOption } from '@/types/select'
+import type {
+  AvailabilityFilter,
+  PriceBand,
+  ProductFilter,
+  SortKey,
+  ViewMode,
+} from '@/types/catalog'
 
 const props = defineProps<{
   category: ProductFilter
@@ -32,7 +30,7 @@ const emit = defineEmits<{
   (e: 'reset'): void
 }>()
 
-const categoryOptions: SelectOption<ProductFilter>[] = productCategories.map((category) => ({
+const categoryOptions: SelectOption<ProductFilter>[] = getProductCategories().map((category) => ({
   label: category,
   value: category,
 }))

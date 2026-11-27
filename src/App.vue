@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
+import zhCn from 'element-plus/es/locale/lang/zh-cn'
 import SiteHeader from '@/components/layout/SiteHeader.vue'
 import SiteFooter from '@/components/layout/SiteFooter.vue'
 import FloatingCart from '@/components/common/FloatingCart.vue'
+import CartDrawer from '@/components/cart/CartDrawer.vue'
 import { useReveal } from '@/composables/useReveal'
 
 const route = useRoute()
@@ -16,14 +18,17 @@ useReveal()
 </script>
 
 <template>
-  <div class="app-shell">
-    <SiteHeader />
-    <main class="site-main">
-      <router-view />
-    </main>
-    <SiteFooter v-if="showFooter" />
-    <FloatingCart />
-  </div>
+  <el-config-provider :locale="zhCn">
+    <div class="app-shell">
+      <SiteHeader />
+      <main class="site-main">
+        <router-view />
+      </main>
+      <SiteFooter v-if="showFooter" />
+      <FloatingCart />
+      <CartDrawer />
+    </div>
+  </el-config-provider>
 </template>
 
 <style scoped>

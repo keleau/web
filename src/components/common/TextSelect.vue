@@ -1,5 +1,5 @@
 <script setup lang="ts" generic="T extends string">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId } from 'vue'
 import { ArrowDown, Check } from '@element-plus/icons-vue'
 import type { SelectOption } from '@/types/select'
 
@@ -25,7 +25,9 @@ const emit = defineEmits<{
 
 const rootRef = ref<HTMLElement | null>(null)
 const triggerRef = ref<HTMLButtonElement | null>(null)
+const optionRefs = ref<(HTMLButtonElement | null)[]>([])
 const isOpen = ref(false)
+const panelId = `text-select-panel-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
 
 const activeOption = computed(() => props.options.find((option) => option.value === props.modelValue))
 
@@ -54,17 +56,57 @@ function select(value: T) {
   nextTick(() => triggerRef.value?.focus())
 }
 
-function onPointerDown(event: PointerEvent) {
-  if (!rootRef.value) return
-  if (!rootRef.value.contains(event.target as Node)) close()
+function setOptionRef(el: unknown, index: number) {
+  optionRefs.value[index] = el instanceof HTMLButtonElement ? el : null
+}
+
+function focusOption(index: number) {
+  const total = props.options.length
+  if (!total) return
+  const safeIndex = ((index % total) + total) % total
+  optionRefs.value[safeIndex]?.focus()
+}
+
+function openAt(index: number) {
+  isOpen.value = true
+  void nextTick(() => focusOption(index))
 }
 
 function onKeydown(event: KeyboardEvent) {
-  if (event.key === 'Escape' && isOpen.value) {
+  const key = event.key
+
+  if (!isOpen.value) {
+    if (key === 'ArrowDown' || key === 'ArrowUp') {
+      event.preventDefault()
+      openAt(key === 'ArrowDown' ? 0 : props.options.length - 1)
+    }
+    return
+  }
+
+  if (key === 'Escape') {
     event.stopPropagation()
     close()
     triggerRef.value?.focus()
+    return
   }
+
+  if (key === 'ArrowDown' || key === 'ArrowUp') {
+    event.preventDefault()
+    const current = optionRefs.value.indexOf(document.activeElement as HTMLButtonElement)
+    const step = key === 'ArrowDown' ? 1 : -1
+    focusOption(current < 0 ? (step > 0 ? 0 : props.options.length - 1) : current + step)
+    return
+  }
+
+  if (key === 'Home' || key === 'End') {
+    event.preventDefault()
+    focusOption(key === 'Home' ? 0 : props.options.length - 1)
+  }
+}
+
+function onPointerDown(event: PointerEvent) {
+  if (!rootRef.value) return
+  if (!rootRef.value.contains(event.target as Node)) close()
 }
 
 onMounted(() => {
@@ -85,6 +127,7 @@ onBeforeUnmount(() => {
       type="button"
       aria-haspopup="listbox"
       :aria-expanded="isOpen"
+      :aria-controls="isOpen ? panelId : undefined"
       :aria-label="`${label}筛选`"
       @click="toggle"
     >
@@ -93,9 +136,10 @@ onBeforeUnmount(() => {
     </button>
 
     <Transition name="select">
-      <ul v-if="isOpen" class="text-select__panel" role="listbox" :aria-label="label">
-        <li v-for="option in options" :key="option.value">
+      <ul v-if="isOpen" :id="panelId" class="text-select__panel" role="listbox" :aria-label="label">
+        <li v-for="(option, index) in options" :key="option.value">
           <button
+            :ref="(el) => setOptionRef(el, index)"
             class="text-select__option"
             :class="{ 'is-selected': option.value === modelValue }"
             type="button"
@@ -192,6 +236,11 @@ onBeforeUnmount(() => {
 
 .text-select__option.is-selected {
   color: var(--text-primary);
+}
+
+.text-select__option:focus-visible {
+  outline: 1px solid var(--brand);
+  outline-offset: -2px;
 }
 
 .text-select__option.is-selected .el-icon {

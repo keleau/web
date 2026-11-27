@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import SmartImage from '@/components/common/SmartImage.vue'
-import type { PromoTile } from '@/data/products'
+import type { PromoTile } from '@/types/catalog'
 
 const props = defineProps<{
   promo: PromoTile
@@ -34,8 +34,8 @@ const emit = defineEmits<{
     </button>
 
     <div class="promo-tile__caption">
-      <h3>定制与批量</h3>
-      <span>按需报价</span>
+      <h3>{{ props.promo.caption }}</h3>
+      <span>{{ props.promo.captionNote }}</span>
     </div>
   </article>
 </template>

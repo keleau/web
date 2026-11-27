@@ -1,16 +1,28 @@
 /* 滚动入场动画：App.vue 初始化，组件用 .reveal + transitionDelay 参与 */
 
-import { onBeforeUnmount, onMounted, watch, nextTick } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 export function useReveal() {
   const route = useRoute()
   let observer: IntersectionObserver | null = null
+  let mutationObserver: MutationObserver | null = null
+  let scheduled = false
 
   function observeReveals() {
     if (!observer) return
     document.querySelectorAll<HTMLElement>('.reveal:not(.is-revealed)').forEach((el) => {
       observer?.observe(el)
+    })
+  }
+
+  /** 合并同一帧内的多次 DOM 变化，避免筛选/路由切换时重复扫描 */
+  function scheduleObserve() {
+    if (scheduled) return
+    scheduled = true
+    requestAnimationFrame(() => {
+      scheduled = false
+      observeReveals()
     })
   }
 
@@ -31,6 +43,10 @@ export function useReveal() {
       { rootMargin: '0px 0px -6% 0px', threshold: 0.08 },
     )
 
+    // 异步路由、筛选后的新卡片、弹窗内容都可能在首轮扫描之后才出现
+    mutationObserver = new MutationObserver(scheduleObserve)
+    mutationObserver.observe(document.body, { childList: true, subtree: true })
+
     observeReveals()
   })
 
@@ -38,13 +54,15 @@ export function useReveal() {
     () => route.fullPath,
     async () => {
       await nextTick()
-      observeReveals()
+      scheduleObserve()
     },
   )
 
   onBeforeUnmount(() => {
     observer?.disconnect()
     observer = null
+    mutationObserver?.disconnect()
+    mutationObserver = null
     document.documentElement.classList.remove('reveal-enabled')
   })
 }

@@ -1,14 +1,5 @@
 /* 页脚导航配置：组与链接集中在此，SiteFooter 只负责渲染 */
-
-export interface FooterLink {
-  label: string
-  to?: string
-}
-
-export interface FooterGroup {
-  title: string
-  links: FooterLink[]
-}
+import type { FooterGroup } from '@/types/content'
 
 export const footerGroups: FooterGroup[] = [
   {

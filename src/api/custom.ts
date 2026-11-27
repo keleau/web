@@ -1,87 +1,178 @@
-import { request } from './request'
-
 /**
- * 定制服务相关接口。
+ * 定制服务接口：参考图上传 → 建模任务 → 提交定制订单。
  *
- * 后端就绪后把 USE_MOCK 改为 false，并按实际路由调整 url 即可；
- * 页面里的 <ReferenceUploader :uploader="uploadReferenceImage" /> 会自动
- * 在上传时展示进度与结果，无需改动组件内部逻辑。
+ * 默认走 mock（VITE_USE_MOCK 未设为 'false' 时开启），便于无后端联调。
+ * 接口路径与 docs/03-后端接口与功能文档.md 保持一致。
  */
-const USE_MOCK = true
+import { http } from './request'
+import { ApiError } from './error'
+import { API_ERROR_CODES } from '@/types/api'
+
+export const isMockMode = import.meta.env.VITE_USE_MOCK !== 'false'
 
 export type UploadProgress = (percent: number) => void
 
 export interface UploadedReference {
-  id?: string
+  id: string
   url: string
 }
 
 export interface CustomOrderPayload {
   productId?: string
   note?: string
-  files: File[]
-  /** 收货与联系资料 */
-  customer?: {
+  /** 已上传参考图的文件 ID（不是本地 File） */
+  referenceIds: string[]
+  customer: {
     name: string
     phone: string
     address: string
   }
 }
 
+export interface CustomOrderResult {
+  orderId: string
+  orderNo: string
+  status: 'pending' | 'confirmed' | 'producing' | 'shipped' | 'completed'
+}
+
+export type ModelingStatus = 'queued' | 'processing' | 'succeeded' | 'failed'
+
+export interface ModelingTask {
+  taskId: string
+  status: ModelingStatus
+  /** 0–100 */
+  progress: number
+  /** 成功后的 .glb 地址；mock 模式不返回，前端退回本地浮雕预览 */
+  modelUrl?: string
+  previewUrl?: string
+  errorMessage?: string
+}
+
+export interface CreateModelingTaskPayload {
+  productId?: string
+  referenceIds: string[]
+  note?: string
+}
+
+/* ---------------- mock 工具 ---------------- */
+
 function wait(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms))
 }
 
-/** 上传单张参考图，返回后端可访问的图片地址 */
+let mockReferenceSeq = 0
+
+interface MockTaskRecord {
+  createdAt: number
+  duration: number
+}
+
+const mockTasks = new Map<string, MockTaskRecord>()
+
+/* ---------------- 参考图上传 ---------------- */
+
+/** 上传单张参考图，返回文件 ID 与可访问地址 */
 export async function uploadReferenceImage(
   file: File,
   onProgress?: UploadProgress,
 ): Promise<UploadedReference> {
-  if (USE_MOCK) {
-    // 模拟上传，便于在没有后端时预览交互；后端接入后删除这段即可
-    onProgress?.(0)
-    await wait(450)
+  if (isMockMode) {
+    onProgress?.(5)
+    await wait(260)
+    onProgress?.(48)
+    await wait(280)
+    onProgress?.(86)
+    await wait(160)
     onProgress?.(100)
-    return { url: URL.createObjectURL(file) }
+    mockReferenceSeq += 1
+    return { id: `mock-ref-${Date.now()}-${mockReferenceSeq}`, url: '' }
   }
 
   const form = new FormData()
   form.append('file', file)
+  return http.upload<UploadedReference>('/uploads/references', form, onProgress)
+}
 
-  return request<UploadedReference>({
-    url: '/custom/reference',
-    method: 'post',
-    data: form,
-    timeout: 60000,
-    onUploadProgress: (event) => {
-      if (!event.total) return
-      onProgress?.(Math.round((event.loaded / event.total) * 100))
-    },
+/* ---------------- 建模任务 ---------------- */
+
+/** 创建建模任务：上传完成后调用，返回 taskId 供轮询 */
+export async function createModelingTask(
+  payload: CreateModelingTaskPayload,
+): Promise<ModelingTask> {
+  if (!payload.referenceIds.length) {
+    throw new ApiError('请先上传至少一张参考图', API_ERROR_CODES.BAD_REQUEST)
+  }
+
+  if (isMockMode) {
+    await wait(220)
+    const taskId = `mock-task-${Date.now()}`
+    mockTasks.set(taskId, {
+      createdAt: Date.now(),
+      // 2.4–3.6s，和后端真实建模耗时保持同一量级，便于调交互
+      duration: 2400 + Math.round(Math.random() * 1200),
+    })
+    return { taskId, status: 'queued', progress: 0 }
+  }
+
+  return http.post<ModelingTask>('/custom/model-tasks', payload)
+}
+
+/** 查询建模任务状态（建议 1–2s 轮询一次） */
+export async function getModelingTask(taskId: string): Promise<ModelingTask> {
+  if (isMockMode) {
+    const record = mockTasks.get(taskId)
+    if (!record) {
+      return {
+        taskId,
+        status: 'failed',
+        progress: 0,
+        errorMessage: '建模任务不存在或已过期',
+      }
+    }
+
+    const elapsed = Date.now() - record.createdAt
+    const progress = Math.min(96, Math.round((elapsed / record.duration) * 96))
+
+    if (elapsed < 700) {
+      return { taskId, status: 'queued', progress: Math.max(0, progress) }
+    }
+    if (elapsed < record.duration) {
+      return { taskId, status: 'processing', progress }
+    }
+    // mock 不产出真实模型，前端自动退回「本地浮雕预览」
+    mockTasks.delete(taskId)
+    return { taskId, status: 'succeeded', progress: 100 }
+  }
+
+  return http.get<ModelingTask>(`/custom/model-tasks/${encodeURIComponent(taskId)}`)
+}
+
+/** 取消建模任务（后端可释放算力；失败不影响前端取消） */
+export async function cancelModelingTask(taskId: string): Promise<void> {
+  if (isMockMode) {
+    mockTasks.delete(taskId)
+    return
+  }
+  await http.delete<void>(`/custom/model-tasks/${encodeURIComponent(taskId)}`, {
+    skipErrorMessage: true,
   })
 }
 
-/** 提交定制需求（参考图 + 备注 + 关联作品） */
-export async function submitCustomOrder(payload: CustomOrderPayload): Promise<{ orderId: string }> {
-  if (USE_MOCK) {
+/* ---------------- 定制订单 ---------------- */
+
+/** 提交定制需求（参考图上传完成后调用） */
+export async function submitCustomOrder(
+  payload: CustomOrderPayload,
+): Promise<CustomOrderResult> {
+  if (isMockMode) {
     await wait(700)
-    console.info('[custom] 定制需求（模拟提交）', payload)
-    return { orderId: `MOCK-${Date.now()}` }
+    const stamp = Date.now()
+    return {
+      orderId: `MOCK-${stamp}`,
+      orderNo: `CW${String(stamp).slice(-8)}`,
+      status: 'pending',
+    }
   }
 
-  const form = new FormData()
-  if (payload.productId) form.append('productId', payload.productId)
-  if (payload.note) form.append('note', payload.note)
-  payload.files.forEach((file) => form.append('files', file))
-  if (payload.customer) {
-    form.append('contactName', payload.customer.name)
-    form.append('contactPhone', payload.customer.phone)
-    form.append('address', payload.customer.address)
-  }
-
-  return request<{ orderId: string }>({
-    url: '/custom/orders',
-    method: 'post',
-    data: form,
-    timeout: 60000,
-  })
+  return http.post<CustomOrderResult>('/custom/orders', payload)
 }

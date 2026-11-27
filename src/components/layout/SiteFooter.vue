@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router'
 import BrandLogo from '@/components/common/BrandLogo.vue'
-import { footerGroups } from '@/data/footer'
+import { getFooterGroups } from '@/services/content'
+
+const footerGroups = getFooterGroups()
 </script>
 
 <template>

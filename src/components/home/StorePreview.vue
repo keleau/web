@@ -3,17 +3,18 @@ import { ArrowRight } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { RouterLink, useRouter } from 'vue-router'
 import ProductTile from '@/components/store/ProductTile.vue'
-import { products, type ProductItem } from '@/data/products'
+import SectionHead from '@/components/common/SectionHead.vue'
+import { getFeaturedProducts, getProducts } from '@/services/catalog'
+import type { ProductItem } from '@/types/catalog'
 import { useCartStore } from '@/stores/cart'
 
 const router = useRouter()
 const cart = useCartStore()
+const products = getProducts()
 
 const FEATURED_IDS = ['mecha-toy', 'clay-guard', 'dunhuang-flying', 'thousand-miles']
 
-const featured = FEATURED_IDS.map((id) =>
-  products.find((product) => product.id === id),
-).filter((product): product is ProductItem => Boolean(product))
+const featured = getFeaturedProducts(FEATURED_IDS)
 
 function addToCart(product: ProductItem) {
   cart.add(product)
@@ -27,15 +28,11 @@ function openProduct(product: ProductItem) {
 
 <template>
   <section id="store" class="page-section home-store" aria-label="精选作品">
-    <div class="section-head">
-      <div class="section-head__title">
-        <span class="kicker">05 — store</span>
-        <h2>把喜欢的作品带回家</h2>
-      </div>
-      <p class="section-head__note">
-        工坊自己出的版数作品：全彩树脂、手工修边、附编号卡。也可从一张照片开始，做一件只属于你的。
-      </p>
-    </div>
+    <SectionHead
+      kicker="05 — store"
+      title="把喜欢的作品带回家"
+      note="工坊自己出的版数作品：全彩树脂、手工修边、附编号卡。也可从一张照片开始，做一件只属于你的。"
+    />
 
     <div class="home-store__grid">
       <ProductTile

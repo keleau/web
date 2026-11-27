@@ -3,11 +3,11 @@ import { computed, ref } from 'vue'
 import SectionTabs from '@/components/common/SectionTabs.vue'
 import CommunityCard from '@/components/community/CommunityCard.vue'
 import {
-  communityCategories,
-  communityItems,
-  type CommunityFilter,
-  type CommunityItem,
-} from '@/data/community'
+  countCommunityItems,
+  filterCommunityItems,
+  getCommunityCategories,
+} from '@/services/community'
+import type { CommunityFilter, CommunityItem } from '@/types/community'
 
 const props = withDefaults(
   defineProps<{
@@ -26,24 +26,17 @@ const emit = defineEmits<{
 
 const activeCategory = ref<CommunityFilter>('全部')
 
-const filteredItems = computed(() =>
-  activeCategory.value === '全部'
-    ? communityItems
-    : communityItems.filter((item) => item.category === activeCategory.value),
-)
+const filteredItems = computed(() => filterCommunityItems(activeCategory.value))
 
 const visibleItems = computed(() =>
   props.limit > 0 ? filteredItems.value.slice(0, props.limit) : filteredItems.value,
 )
 
 const tabOptions = computed(() =>
-  communityCategories.map((category) => ({
+  getCommunityCategories().map((category) => ({
     label: category,
     value: category,
-    count:
-      category === '全部'
-        ? communityItems.length
-        : communityItems.filter((item) => item.category === category).length,
+    count: countCommunityItems(category),
   })),
 )
 </script>

@@ -3,7 +3,9 @@ import { computed, ref } from 'vue'
 import { ArrowDown, ArrowRight } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import SmartImage from '@/components/common/SmartImage.vue'
-import { heroItems } from '@/data/home'
+import { getHeroItems } from '@/services/content'
+
+const heroItems = getHeroItems()
 
 const active = ref(0)
 const current = computed(() => heroItems[active.value])

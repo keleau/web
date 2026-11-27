@@ -7,11 +7,13 @@ import ProductRow from '@/components/store/ProductRow.vue'
 import StoreCallout from '@/components/store/StoreCallout.vue'
 import StoreToolbar from '@/components/store/StoreToolbar.vue'
 import { useProductCatalog } from '@/composables/useProductCatalog'
-import { products, type ProductItem, type PromoTile } from '@/data/products'
+import { getProducts } from '@/services/catalog'
+import type { ProductItem, PromoTile } from '@/types/catalog'
 import { useCartStore } from '@/stores/cart'
 
 const router = useRouter()
 const cart = useCartStore()
+const catalogCount = getProducts().length
 
 const {
   category,
@@ -93,7 +95,7 @@ function openPromo(promo: PromoTile) {
 
       <div v-if="count === 0" class="store-empty">
         <p>没有符合条件的作品。</p>
-        <button type="button" @click="resetFilters">清除筛选，查看全部 {{ products.length }} 件</button>
+        <button type="button" @click="resetFilters">清除筛选，查看全部 {{ catalogCount }} 件</button>
       </div>
     </div>
 

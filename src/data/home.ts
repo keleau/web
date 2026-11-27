@@ -1,12 +1,5 @@
-/* 首页数据：只负责「看效果 → 懂流程 → 选工具」这一段 */
-
-export interface HeroItem {
-  id: string
-  title: string
-  desc: string
-  spec: string
-  image: string
-}
+/* 首页数据：静态内容，组件通过 @/services/content 读取 */
+import type { FeatureItem, HeroItem, ProcessStep } from '@/types/content'
 
 export const heroItems: HeroItem[] = [
   {
@@ -39,13 +32,6 @@ export const heroItems: HeroItem[] = [
   },
 ]
 
-export interface ProcessStep {
-  no: string
-  title: string
-  desc: string
-  meta: string
-}
-
 export const processSteps: ProcessStep[] = [
   {
     no: '01',
@@ -72,17 +58,6 @@ export const processSteps: ProcessStep[] = [
     meta: '1–2 天',
   },
 ]
-
-export type FeatureIcon = 'bust' | 'full' | 'scan' | 'vertex'
-
-export interface FeatureItem {
-  id: FeatureIcon
-  title: string
-  desc: string
-  icon: FeatureIcon
-  duration: string
-  image: string
-}
 
 export const features: FeatureItem[] = [
   {

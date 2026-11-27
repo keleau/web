@@ -4,7 +4,10 @@ import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { Bell, Close, Menu, Service } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import BrandLogo from '@/components/common/BrandLogo.vue'
-import { primaryNav, type NavItem } from '@/data/navigation'
+import { getPrimaryNav } from '@/services/content'
+import type { NavItem } from '@/types/content'
+
+const primaryNav = getPrimaryNav()
 
 const route = useRoute()
 const router = useRouter()
@@ -25,8 +28,12 @@ function handleNav(item: NavItem) {
     return
   }
 
-  if (route.path === item.to && !item.anchor) {
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+  if (route.path === item.to && (route.hash || '') === (item.anchor || '')) {
+    if (item.anchor) {
+      document.querySelector(item.anchor)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
     return
   }
 
@@ -65,6 +72,7 @@ function login() {
             :key="item.label"
             class="site-nav__item"
             :class="{ 'is-active': isActive(item) }"
+            :aria-current="isActive(item) ? 'page' : undefined"
             type="button"
             @click="handleNav(item)"
           >
@@ -116,6 +124,7 @@ function login() {
           :key="item.label"
           class="drawer-nav__item"
           :class="{ 'is-active': isActive(item) }"
+          :aria-current="isActive(item) ? 'page' : undefined"
           type="button"
           @click="handleNav(item)"
         >
